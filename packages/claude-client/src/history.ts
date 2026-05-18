@@ -9,6 +9,7 @@ import {
 } from "@angel-engine/client-napi";
 import is from "@sindresorhus/is";
 import { lookup } from "mime-types";
+import path from "node:path";
 import { structuredPlanFromToolUse } from "./plan.js";
 import { claudeHistoryToolCall, claudeHistoryToolResult } from "./tooling.js";
 
@@ -196,16 +197,11 @@ function userTextContentParts(text: string): HistoryContentPart[] {
 function claudeAttachmentTextPart(
   text: string,
 ): HistoryContentPart | undefined {
-  const separator = text.match(/\r?\n\r?\n/);
-  if (!separator?.index) return undefined;
-  const header = text.slice(0, separator.index);
-  const data = text.slice(separator.index + separator[0].length);
+  const match = /^Resource: (?<uri>\S+)\r?\n\r?\n/.exec(text);
+  if (!match?.groups?.uri) return undefined;
+  const data = text.slice(match[0].length);
   if (!data) return undefined;
-  const uri = header.startsWith("Resource: ")
-    ? header.slice("Resource: ".length)
-    : undefined;
-  if (!uri) return undefined;
-  const name = decodedFileNameFromUri(uri);
+  const name = decodedFileNameFromUri(match.groups.uri);
   return {
     File: {
       data,
@@ -216,11 +212,9 @@ function claudeAttachmentTextPart(
 }
 
 function decodedFileNameFromUri(uri: string): string | null {
-  const rawName =
-    uri
-      .split("/")
-      .reverse()
-      .find((part) => part.trim().length > 0) ?? uri;
+  const pathname = URL.canParse(uri) ? new URL(uri).pathname : uri;
+  const rawName = path.posix.basename(pathname);
+  if (!rawName || rawName === ".") return null;
   try {
     return decodeURIComponent(rawName);
   } catch {
