@@ -1230,7 +1230,7 @@ fn parse_codex_text_resource_text(text: &str) -> Option<ContentPart> {
     Some(ContentPart::file(
         data.to_string(),
         mime_type.to_string(),
-        non_empty_name(file_name_from_uri(uri)),
+        non_empty_name(&decoded_file_name_from_uri(uri)),
     ))
 }
 
@@ -1240,8 +1240,43 @@ fn file_name_from_uri(uri: &str) -> &str {
         .unwrap_or(uri)
 }
 
+fn decoded_file_name_from_uri(uri: &str) -> String {
+    percent_decode(file_name_from_uri(uri)).unwrap_or_else(|| file_name_from_uri(uri).to_string())
+}
+
 fn non_empty_name(name: &str) -> Option<String> {
     (!name.trim().is_empty()).then(|| name.to_string())
+}
+
+fn percent_decode(value: &str) -> Option<String> {
+    let bytes = value.as_bytes();
+    let mut decoded = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index] == b'%'
+            && index + 2 < bytes.len()
+            && let (Some(high), Some(low)) =
+                (hex_digit(bytes[index + 1]), hex_digit(bytes[index + 2]))
+        {
+            decoded.push((high << 4) | low);
+            index += 3;
+            continue;
+        }
+
+        decoded.push(bytes[index]);
+        index += 1;
+    }
+
+    String::from_utf8(decoded).ok()
+}
+
+fn hex_digit(byte: u8) -> Option<u8> {
+    match byte {
+        b'0'..=b'9' => Some(byte - b'0'),
+        b'a'..=b'f' => Some(byte - b'a' + 10),
+        b'A'..=b'F' => Some(byte - b'A' + 10),
+        _ => None,
+    }
 }
 
 fn codex_image_part(part: &Value) -> Option<ContentPart> {
@@ -2027,6 +2062,80 @@ mod tests {
                         && blob_data == "UEsDBAo="
                         && blob_mime == "application/zip"
                         && blob_name.as_deref() == Some("archive.zip")
+            )
+        ));
+    }
+
+    #[test]
+    fn thread_resume_restores_user_text_and_markdown_attachment_card() {
+        let adapter = CodexAdapter::app_server();
+        let mut engine = AngelEngine::with_available_runtime(
+            angel_engine::ProtocolFlavor::CodexAppServer,
+            angel_engine::RuntimeCapabilities::new("test"),
+            adapter.capabilities(),
+        );
+        let request_id = engine
+            .plan_command(angel_engine::EngineCommand::ResumeConversation {
+                target: angel_engine::ResumeTarget::Remote {
+                    id: "thread_1".to_string(),
+                    hydrate: true,
+                    cwd: None,
+                },
+            })
+            .expect("resume plan")
+            .request_id
+            .expect("request id");
+
+        let output = adapter
+            .decode_response(
+                &engine,
+                &request_id,
+                &json!({
+                    "thread": {
+                        "id": "thread_1",
+                        "turns": [
+                            {
+                                "items": [
+                                    {
+                                        "type": "userMessage",
+                                        "content": [
+                                            { "type": "input_text", "text": "这个讲了什么" },
+                                            {
+                                                "type": "input_text",
+                                                "text": "Attached text resource: attachment:///PRD_%E6%99%BA%E8%83%BD%E4%BD%93.md\nMIME type: text/markdown\n\n# 智能体广场\n\n内容"
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                }),
+            )
+            .expect("thread resume response");
+
+        let entry = output
+            .events
+            .iter()
+            .find_map(|event| match event {
+                EngineEvent::HistoryReplayChunk { entry, .. } => Some(entry),
+                _ => None,
+            })
+            .expect("history replay entry");
+
+        assert_eq!(entry.role, HistoryRole::User);
+        assert!(matches!(
+            &entry.content,
+            ContentDelta::Parts(parts)
+                if matches!(
+                    parts.as_slice(),
+                    [
+                        ContentPart::Text(text),
+                        ContentPart::File { data, mime_type, name },
+                    ] if text == "这个讲了什么"
+                        && data == "# 智能体广场\n\n内容"
+                        && mime_type == "text/markdown"
+                        && name.as_deref() == Some("PRD_智能体.md")
                 )
         ));
     }
