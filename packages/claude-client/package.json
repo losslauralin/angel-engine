@@ -35,11 +35,13 @@
   "dependencies": {
     "@agentclientprotocol/sdk": "^0.21.1",
     "@angel-engine/js-client": "workspace:*",
-    "@sindresorhus/is": "^4.6.0"
+    "@sindresorhus/is": "^4.6.0",
+    "mime-types": "^3.0.0"
   },
   "devDependencies": {
     "@angel-engine/client-napi": "workspace:*",
     "@anthropic-ai/claude-agent-sdk": "^0.2.133",
+    "@types/mime-types": "^3.0.1",
     "@typescript-eslint/eslint-plugin": "^8.59.2",
     "@typescript-eslint/parser": "^8.59.2",
     "eslint": "^10.4.0",

@@ -8,6 +8,7 @@ import {
   EngineEventHistoryRole,
 } from "@angel-engine/client-napi";
 import is from "@sindresorhus/is";
+import { lookup } from "mime-types";
 import { structuredPlanFromToolUse } from "./plan.js";
 import { claudeHistoryToolCall, claudeHistoryToolResult } from "./tooling.js";
 
@@ -18,6 +19,15 @@ interface HistoryToolUse {
 }
 
 type ReadonlyJsonObject = { readonly [key: string]: ChatJsonValue };
+type HistoryContentPart =
+  | { Text: string }
+  | {
+      File: {
+        data: string;
+        mime_type: string;
+        name: string | null;
+      };
+    };
 
 type AssistantHistoryBlock =
   | { text: string; type: "text" }
@@ -120,16 +130,25 @@ function historyEventsFromSessionMessage(
     });
   }
   if (message.type === "user") {
-    return blocks.flatMap((block) => {
+    const events: EngineEventJson[] = [];
+    let contentParts: HistoryContentPart[] = [];
+    const flushUserContent = (): void => {
+      if (contentParts.length === 0) return;
+      events.push(
+        historyReplayChunk(conversationId, EngineEventHistoryRole.User, {
+          [EngineEventContentKind.Parts]: contentParts,
+        }),
+      );
+      contentParts = [];
+    };
+
+    for (const block of blocks) {
       if (block.type === "text") {
         if (!is.string(block.text)) {
           throw new Error("Claude user text history block is malformed.");
         }
-        return userHistoryEvents(
-          conversationId,
-          { text: block.text, type: "text" },
-          toolUses,
-        );
+        contentParts.push(...userTextContentParts(block.text));
+        continue;
       }
       if (block.type === "tool_result") {
         if (
@@ -142,25 +161,75 @@ function historyEventsFromSessionMessage(
             "Claude user tool_result history block is malformed.",
           );
         }
-        return userHistoryEvents(
-          conversationId,
-          {
-            content: is.string(block.content)
-              ? block.content
-              : (block.content as object[]),
-            ...(block.is_error === undefined
-              ? {}
-              : { is_error: block.is_error }),
-            tool_use_id: block.tool_use_id,
-            type: "tool_result",
-          },
-          toolUses,
+        flushUserContent();
+        events.push(
+          ...userHistoryEvents(
+            conversationId,
+            {
+              content: is.string(block.content)
+                ? block.content
+                : (block.content as object[]),
+              ...(block.is_error === undefined
+                ? {}
+                : { is_error: block.is_error }),
+              tool_use_id: block.tool_use_id,
+              type: "tool_result",
+            },
+            toolUses,
+          ),
         );
+        continue;
       }
-      return [];
-    });
+    }
+    flushUserContent();
+    return events;
   }
   return [];
+}
+
+function userTextContentParts(text: string): HistoryContentPart[] {
+  if (!text) return [];
+  const attachment = claudeAttachmentTextPart(text);
+  return attachment ? [attachment] : [{ Text: text }];
+}
+
+function claudeAttachmentTextPart(
+  text: string,
+): HistoryContentPart | undefined {
+  const separator = text.match(/\r?\n\r?\n/);
+  if (!separator?.index) return undefined;
+  const header = text.slice(0, separator.index);
+  const data = text.slice(separator.index + separator[0].length);
+  if (!data) return undefined;
+  const uri = header.startsWith("Resource: ")
+    ? header.slice("Resource: ".length)
+    : undefined;
+  if (!uri) return undefined;
+  const name = decodedFileNameFromUri(uri);
+  return {
+    File: {
+      data,
+      mime_type: mimeTypeFromFileName(name),
+      name,
+    },
+  };
+}
+
+function decodedFileNameFromUri(uri: string): string | null {
+  const rawName =
+    uri
+      .split("/")
+      .reverse()
+      .find((part) => part.trim().length > 0) ?? uri;
+  try {
+    return decodeURIComponent(rawName);
+  } catch {
+    return rawName;
+  }
+}
+
+function mimeTypeFromFileName(name: string | null): string {
+  return (name && lookup(name)) || "text/plain";
 }
 
 function assistantHistoryEvents(

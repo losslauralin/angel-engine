@@ -501,7 +501,10 @@ pub(super) fn content_text(value: &Value) -> Option<String> {
 fn content_delta(value: &Value) -> ContentDelta {
     if let Some(parts) = content_parts(value)
         && !parts.is_empty()
-        && value.is_array()
+        && (value.is_array()
+            || parts
+                .iter()
+                .any(|part| matches!(part, ContentPart::Image { .. } | ContentPart::File { .. })))
     {
         return ContentDelta::Parts(parts);
     }
@@ -554,6 +557,80 @@ fn content_part(value: &Value) -> Option<ContentPart> {
                 .map(str::to_string);
             Some(ContentPart::image(data, mime_type, name))
         }
+        Some("resource") => {
+            let resource = value.get("resource")?;
+            let uri = resource.get("uri").and_then(Value::as_str)?;
+            if let Some(text) = resource.get("text").and_then(Value::as_str) {
+                if text.is_empty() {
+                    return None;
+                }
+                return Some(ContentPart::file(
+                    text.to_string(),
+                    resource_mime_type(resource),
+                    decoded_file_name_from_uri(uri),
+                ));
+            }
+            if let Some(blob) = resource.get("blob").and_then(Value::as_str) {
+                if blob.is_empty() {
+                    return None;
+                }
+                return Some(ContentPart::file(
+                    blob.to_string(),
+                    resource_mime_type(resource),
+                    decoded_file_name_from_uri(uri),
+                ));
+            }
+            None
+        }
+        _ => None,
+    }
+}
+
+fn resource_mime_type(resource: &Value) -> String {
+    resource
+        .get("mimeType")
+        .or_else(|| resource.get("mime_type"))
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or("application/octet-stream")
+        .to_string()
+}
+
+fn decoded_file_name_from_uri(uri: &str) -> Option<String> {
+    let raw_name = uri
+        .rsplit('/')
+        .find(|part| !part.trim().is_empty())
+        .unwrap_or(uri);
+    percent_decode(raw_name).or_else(|| Some(raw_name.to_string()))
+}
+
+fn percent_decode(value: &str) -> Option<String> {
+    let bytes = value.as_bytes();
+    let mut decoded = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index] == b'%'
+            && index + 2 < bytes.len()
+            && let (Some(high), Some(low)) =
+                (hex_digit(bytes[index + 1]), hex_digit(bytes[index + 2]))
+        {
+            decoded.push((high << 4) | low);
+            index += 3;
+            continue;
+        }
+
+        decoded.push(bytes[index]);
+        index += 1;
+    }
+
+    String::from_utf8(decoded).ok()
+}
+
+fn hex_digit(byte: u8) -> Option<u8> {
+    match byte {
+        b'0'..=b'9' => Some(byte - b'0'),
+        b'a'..=b'f' => Some(byte - b'a' + 10),
+        b'A'..=b'F' => Some(byte - b'A' + 10),
         _ => None,
     }
 }

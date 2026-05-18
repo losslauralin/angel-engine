@@ -49,4 +49,39 @@ describe("Claude history replay", () => {
       ]),
     ).toThrow("Claude assistant text history block is malformed.");
   });
+
+  it("restores user text and resource attachments as one replay message", () => {
+    const events = historyEventsFromSessionMessages("conversation-1", [
+      sessionMessage("user", [
+        { text: "这个讲了什么", type: "text" },
+        {
+          text: "Resource: attachment:///PRD_%E6%99%BA%E8%83%BD%E4%BD%93.md\n\n# 智能体广场\n\n内容",
+          type: "text",
+        },
+      ]),
+    ]);
+
+    expect(events).toEqual([
+      {
+        HistoryReplayChunk: {
+          conversation_id: "conversation-1",
+          entry: {
+            content: {
+              Parts: [
+                { Text: "这个讲了什么" },
+                {
+                  File: {
+                    data: "# 智能体广场\n\n内容",
+                    mime_type: "text/markdown",
+                    name: "PRD_智能体.md",
+                  },
+                },
+              ],
+            },
+            role: EngineEventHistoryRole.User,
+          },
+        },
+      },
+    ]);
+  });
 });

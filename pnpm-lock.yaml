@@ -293,6 +293,9 @@ importers:
       "@sindresorhus/is":
         specifier: ^4.6.0
         version: 4.6.0
+      mime-types:
+        specifier: ^3.0.0
+        version: 3.0.2
     devDependencies:
       "@angel-engine/client-napi":
         specifier: workspace:*
@@ -300,6 +303,9 @@ importers:
       "@anthropic-ai/claude-agent-sdk":
         specifier: ^0.2.133
         version: 0.2.141(patch_hash=f8f60042768be19cd0e3b76f516c07eccb2295c9bf84f37822159d40ea4e191f)(zod@4.4.3)
+      "@types/mime-types":
+        specifier: ^3.0.1
+        version: 3.0.1
       "@typescript-eslint/eslint-plugin":
         specifier: ^8.59.2
         version: 8.59.3(@typescript-eslint/parser@8.59.3(eslint@10.4.0(jiti@2.7.0))(typescript@6.0.3))(eslint@10.4.0(jiti@2.7.0))(typescript@6.0.3)
