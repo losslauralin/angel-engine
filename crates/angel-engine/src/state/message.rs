@@ -358,20 +358,20 @@ fn append_history_display_message(
             content: parts,
         }),
         HistoryRole::Tool => {
-            let (turn_id, parts) = ensure_history_assistant_message(messages);
+            let (turn_id, parts) = ensure_history_assistant_message(messages, index);
             let action = history_tool_action(entry, turn_id);
             upsert_display_tool_part(parts, action);
         }
         HistoryRole::Reasoning => {
-            let (_, parts) = ensure_history_assistant_message(messages);
+            let (_, parts) = ensure_history_assistant_message(messages, index);
             append_display_text_part(parts, DisplayTextPartKind::Reasoning, text);
         }
         HistoryRole::Assistant => {
-            let (_, assistant_parts) = ensure_history_assistant_message(messages);
+            let (_, assistant_parts) = ensure_history_assistant_message(messages, index);
             append_display_parts(assistant_parts, parts);
         }
         HistoryRole::Unknown(role) => {
-            let (_, parts) = ensure_history_assistant_message(messages);
+            let (_, parts) = ensure_history_assistant_message(messages, index);
             append_display_text_part(parts, DisplayTextPartKind::Unknown(role.clone()), text);
         }
     }
@@ -379,6 +379,7 @@ fn append_history_display_message(
 
 fn ensure_history_assistant_message(
     messages: &mut Vec<DisplayMessage>,
+    index: usize,
 ) -> (TurnId, &mut Vec<DisplayMessagePart>) {
     if messages
         .last()
@@ -388,7 +389,7 @@ fn ensure_history_assistant_message(
         return (TurnId::new(message.id.clone()), &mut message.content);
     }
 
-    let id = format!("history-{}", messages.len());
+    let id = format!("history-{index}");
     let turn_id = TurnId::new(id.clone());
     messages.push(DisplayMessage {
         id,
@@ -808,6 +809,49 @@ mod tests {
             Some(DisplayMessagePart::Text { kind: DisplayTextPartKind::Text, text })
                 if text == "done"
         ));
+    }
+
+    #[test]
+    fn hydrated_history_message_ids_are_unique_for_interleaved_entries() {
+        let mut conversation = conversation(ConversationCapabilities::unknown());
+        conversation.history.replay = vec![
+            HistoryReplayEntry {
+                role: HistoryRole::Assistant,
+                content: ContentDelta::Text("first answer".to_string()),
+                tool: None,
+            },
+            HistoryReplayEntry {
+                role: HistoryRole::User,
+                content: ContentDelta::Text("next prompt".to_string()),
+                tool: None,
+            },
+            HistoryReplayEntry {
+                role: HistoryRole::Tool,
+                content: ContentDelta::Text(String::new()),
+                tool: Some(HistoryReplayToolAction {
+                    id: Some("call_1".to_string()),
+                    kind: Some(ActionKind::Command),
+                    phase: ActionPhase::Completed,
+                    title: Some("pwd".to_string()),
+                    input_summary: None,
+                    raw_input: None,
+                    output: Vec::new(),
+                    error: None,
+                }),
+            },
+        ];
+
+        let messages = conversation_display_messages(&conversation);
+        let ids = messages
+            .iter()
+            .map(|message| message.id.as_str())
+            .collect::<BTreeSet<_>>();
+
+        assert_eq!(messages.len(), 3);
+        assert_eq!(ids.len(), messages.len());
+        assert_eq!(messages[0].id, "history-0");
+        assert_eq!(messages[1].id, "history-1");
+        assert_eq!(messages[2].id, "history-2");
     }
 
     #[test]

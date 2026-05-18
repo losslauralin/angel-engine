@@ -775,10 +775,7 @@ export class ClaudeCodeSession {
   }
 
   private initialConversationEvents(conversationId: string): EngineEventJson[] {
-    return compactEvents([
-      this.sessionPermissionModesUpdated(conversationId),
-      this.reasoningConfigUpdated(conversationId),
-    ]);
+    return compactEvents([this.reasoningConfigUpdated(conversationId)]);
   }
 
   private async loadRuntimeConfiguration(cwd?: string): Promise<void> {

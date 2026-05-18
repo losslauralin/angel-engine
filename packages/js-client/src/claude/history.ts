@@ -73,26 +73,38 @@ function historyEventsFromSessionMessage(
   const blocks = content as readonly ReadonlyJsonObject[];
   if (message.type === "assistant") {
     return blocks.flatMap((block) => {
-      if (block.type === "text" && is.string(block.text)) {
+      if (block.type === "text") {
+        if (!is.string(block.text)) {
+          throw new Error("Claude assistant text history block is malformed.");
+        }
         return assistantHistoryEvents(
           conversationId,
           { text: block.text, type: "text" },
           toolUses,
         );
       }
-      if (block.type === "thinking" && is.string(block.thinking)) {
+      if (block.type === "thinking") {
+        if (!is.string(block.thinking)) {
+          throw new Error(
+            "Claude assistant thinking history block is malformed.",
+          );
+        }
         return assistantHistoryEvents(
           conversationId,
           { thinking: block.thinking, type: "thinking" },
           toolUses,
         );
       }
-      if (
-        block.type === "tool_use" &&
-        is.nonEmptyString(block.id) &&
-        is.nonEmptyString(block.name) &&
-        is.plainObject(block.input)
-      ) {
+      if (block.type === "tool_use") {
+        if (
+          !is.nonEmptyString(block.id) ||
+          !is.nonEmptyString(block.name) ||
+          !is.plainObject(block.input)
+        ) {
+          throw new Error(
+            "Claude assistant tool_use history block is malformed.",
+          );
+        }
         return assistantHistoryEvents(
           conversationId,
           {
@@ -104,24 +116,32 @@ function historyEventsFromSessionMessage(
           toolUses,
         );
       }
-      throw new Error("Unknown Claude assistant history block.");
+      return [];
     });
   }
   if (message.type === "user") {
     return blocks.flatMap((block) => {
-      if (block.type === "text" && is.string(block.text)) {
+      if (block.type === "text") {
+        if (!is.string(block.text)) {
+          throw new Error("Claude user text history block is malformed.");
+        }
         return userHistoryEvents(
           conversationId,
           { text: block.text, type: "text" },
           toolUses,
         );
       }
-      if (
-        block.type === "tool_result" &&
-        is.nonEmptyString(block.tool_use_id) &&
-        (is.string(block.content) || is.array(block.content, is.plainObject)) &&
-        (block.is_error === undefined || is.boolean(block.is_error))
-      ) {
+      if (block.type === "tool_result") {
+        if (
+          !is.nonEmptyString(block.tool_use_id) ||
+          (!is.string(block.content) &&
+            !is.array(block.content, is.plainObject)) ||
+          (block.is_error !== undefined && !is.boolean(block.is_error))
+        ) {
+          throw new Error(
+            "Claude user tool_result history block is malformed.",
+          );
+        }
         return userHistoryEvents(
           conversationId,
           {
@@ -137,7 +157,7 @@ function historyEventsFromSessionMessage(
           toolUses,
         );
       }
-      throw new Error("Unknown Claude user history block.");
+      return [];
     });
   }
   return [];
