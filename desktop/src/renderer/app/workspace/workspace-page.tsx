@@ -85,6 +85,7 @@ import {
   projectListQueryOptions,
 } from "@/features/projects/api/queries";
 import { SettingsPage } from "@/features/settings/settings-page";
+import { useSettingsStore } from "@/features/settings/settings-store";
 import { useAgentSettings } from "@/features/settings/use-agent-settings";
 import { queryKeys } from "@/platform/query-keys";
 import { useApi } from "@/platform/use-api";
@@ -162,9 +163,12 @@ function WorkspacePageContent({
   const [location, navigate] = useLocation();
   const isMacOS = window.desktopEnvironment.platform === "darwin";
   const [agentSettings, updateAgentSettings] = useAgentSettings();
+  const availableAgentOptions = useSettingsStore(
+    (state) => state.availableAgentOptions,
+  );
   const enabledAgentOptions = useMemo(
-    () => getEnabledAgentOptions(agentSettings),
-    [agentSettings],
+    () => getEnabledAgentOptions(agentSettings, availableAgentOptions),
+    [agentSettings, availableAgentOptions],
   );
   const runtimeOptions = useMemo(
     () =>
@@ -233,8 +237,16 @@ function WorkspacePageContent({
     ? draftRuntimeKeyFromProjectId(routeDraftProjectId)
     : undefined;
   const draftRuntime = draftRuntimeKey
-    ? resolveEnabledAgentRuntime(agentSettings, draftRuntimes[draftRuntimeKey])
-    : resolveEnabledAgentRuntime(agentSettings);
+    ? resolveEnabledAgentRuntime(
+        agentSettings,
+        draftRuntimes[draftRuntimeKey],
+        availableAgentOptions,
+      )
+    : resolveEnabledAgentRuntime(
+        agentSettings,
+        undefined,
+        availableAgentOptions,
+      );
   const activeRuntime = chatRuntime ?? draftRuntime;
   const shouldPrewarmChat =
     isDraftPage && (!routeDraftProjectId || Boolean(draftProject.path));
@@ -751,6 +763,7 @@ function WorkspacePageContent({
             <WorkspaceHeader attention={chatAttention} title={workspaceTitle} />
             <SettingsPage
               agentSettings={agentSettings}
+              availableAgentOptions={availableAgentOptions}
               isDeletingChats={deleteAllChatsMutation.isPending}
               onAgentEnabledChange={setAgentEnabled}
               onDeleteAllChats={deleteAllChats}

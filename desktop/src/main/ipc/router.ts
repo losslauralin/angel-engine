@@ -2,6 +2,7 @@ import type { ChatRuntime } from "../features/chat/runtime";
 import { tipc } from "@egoist/tipc/main";
 
 import { type as arkType } from "arktype";
+import { agentIpcRouter } from "../features/agents/ipc";
 import { createChatIpcRouter } from "../features/chat/ipc";
 import { projectIpcRouter } from "../features/projects/ipc";
 import { setMainLanguage } from "../platform/i18n";
@@ -21,6 +22,7 @@ const appIpcRouter = {
 export function createAppRouter(chatRuntime: ChatRuntime) {
   return {
     ...appIpcRouter,
+    ...agentIpcRouter,
     ...createChatIpcRouter(chatRuntime),
     ...projectIpcRouter,
   };

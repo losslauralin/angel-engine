@@ -11,6 +11,10 @@ import type {
 import type { CreateProjectInput } from "@shared/projects";
 import { ipc } from "@/platform/ipc";
 
+interface AgentsApiClient {
+  listAvailable: () => ReturnType<typeof ipc.agentsListAvailable>;
+}
+
 interface ChatApiClient {
   archive: (chatId: string) => ReturnType<typeof ipc.chatsArchive>;
   create: (input?: ChatCreateInput) => ReturnType<typeof ipc.chatsCreate>;
@@ -47,12 +51,16 @@ interface ProjectsApiClient {
 }
 
 export interface ApiClient {
+  agents: AgentsApiClient;
   chats: ChatApiClient;
   projects: ProjectsApiClient;
 }
 
 export function createApiClient(): ApiClient {
   return {
+    agents: {
+      listAvailable: async () => ipc.agentsListAvailable(),
+    },
     chats: {
       archive: async (chatId: string) => ipc.chatsArchive(chatId),
       create: async (input: ChatCreateInput = {}) => ipc.chatsCreate(input),

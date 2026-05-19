@@ -1020,52 +1020,54 @@ function ComposerModelMenu({
 
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            aria-label={t("composer.provider")}
+      {providerOptions.length > 1 ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              aria-label={t("composer.provider")}
+              className={`
+                ${composerModelMenuTriggerClassName}
+                max-w-40
+              `}
+              size="sm"
+              title={providerDisabledReason ?? t("composer.provider")}
+              type="button"
+              variant="ghost"
+            >
+              <Bot className="size-3.5 shrink-0 text-muted-foreground" />
+              <span className={composerModelMenuValueClassName}>
+                {providerLabel}
+              </span>
+              <ComposerModelMenuChevron />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
             className={`
-              ${composerModelMenuTriggerClassName}
-              max-w-40
+              ${composerNativeMenuClassName}
+              w-52 min-w-0
             `}
-            size="sm"
-            title={providerDisabledReason ?? t("composer.provider")}
-            type="button"
-            variant="ghost"
+            align="start"
+            sideOffset={4}
+            variant="native"
           >
-            <Bot className="size-3.5 shrink-0 text-muted-foreground" />
-            <span className={composerModelMenuValueClassName}>
-              {providerLabel}
-            </span>
-            <ComposerModelMenuChevron />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent
-          className={`
-            ${composerNativeMenuClassName}
-            w-52 min-w-0
-          `}
-          align="start"
-          sideOffset={4}
-          variant="native"
-        >
-          <DropdownMenuLabel className={composerNativeMenuLabelClassName}>
-            {t("composer.provider")}
-          </DropdownMenuLabel>
-          {providerOptions.map((provider) => (
-            <ComposerModelMenuItem
-              disabled={providerDisabled}
-              disabledReason={providerDisabledReason}
-              key={provider.value}
-              label={provider.label}
-              onSelect={() => {
-                void options.setRuntime(provider.value);
-              }}
-              selected={provider.value === options.runtime}
-            />
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
+            <DropdownMenuLabel className={composerNativeMenuLabelClassName}>
+              {t("composer.provider")}
+            </DropdownMenuLabel>
+            {providerOptions.map((provider) => (
+              <ComposerModelMenuItem
+                disabled={providerDisabled}
+                disabledReason={providerDisabledReason}
+                key={provider.value}
+                label={provider.label}
+                onSelect={() => {
+                  void options.setRuntime(provider.value);
+                }}
+                selected={provider.value === options.runtime}
+              />
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : null}
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

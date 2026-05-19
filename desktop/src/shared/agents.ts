@@ -95,27 +95,33 @@ export function isAgentRuntime(value: unknown): value is AgentRuntime {
   return !(agentRuntime(value) instanceof arkType.errors);
 }
 
-export function getEnabledAgentOptions(settings: AgentSettings): AgentOption[] {
+export function getEnabledAgentOptions(
+  settings: AgentSettings,
+  availableAgents: AgentOption[] = AGENT_OPTIONS,
+): AgentOption[] {
   const enabled = new Set(settings.enabledRuntimes);
-  return AGENT_OPTIONS.filter((agent) => enabled.has(agent.id));
+  return availableAgents.filter((agent) => enabled.has(agent.id));
 }
 
 export function resolveEnabledAgentRuntime(
   settings: AgentSettings,
   runtime?: AgentRuntime,
+  availableAgents: AgentOption[] = AGENT_OPTIONS,
 ): AgentRuntime {
-  if (runtime && settings.enabledRuntimes.includes(runtime)) {
+  const available = new Set(availableAgents.map((agent) => agent.id));
+  const enabledRuntimes = settings.enabledRuntimes.filter((enabledRuntime) =>
+    available.has(enabledRuntime),
+  );
+
+  if (runtime && enabledRuntimes.includes(runtime)) {
     return runtime;
   }
 
-  if (
-    settings.lastRuntime &&
-    settings.enabledRuntimes.includes(settings.lastRuntime)
-  ) {
+  if (settings.lastRuntime && enabledRuntimes.includes(settings.lastRuntime)) {
     return settings.lastRuntime;
   }
 
-  return settings.enabledRuntimes[0];
+  return enabledRuntimes[0] ?? settings.enabledRuntimes[0];
 }
 
 export function sanitizeAgentRuntimePreference(

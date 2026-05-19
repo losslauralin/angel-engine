@@ -1,10 +1,11 @@
-import type { AgentRuntime, AgentSettings } from "@shared/agents";
+import type { AgentOption, AgentRuntime, AgentSettings } from "@shared/agents";
 
 import type { SupportedLanguage } from "@shared/i18n/resources";
 import type { DesktopThemeMode } from "@/platform/theme";
 import { sanitizeAgentSettings } from "@shared/agents";
 import { normalizeSupportedLanguage } from "@shared/i18n/resources";
 import { create } from "zustand";
+import { getApiClient } from "@/platform/api-client";
 import { readDesktopThemeMode, setDesktopThemeMode } from "@/platform/theme";
 
 const agentSettingsStorageKey = "angel-engine.agent-settings.v1";
@@ -21,7 +22,9 @@ interface SettingsBroadcastMessage {
 
 interface SettingsState {
   agentSettings: AgentSettings;
+  availableAgentOptions: AgentOption[];
   language: SupportedLanguage;
+  refreshAvailableAgentOptions: () => Promise<void>;
   setAgentEnabled: (runtime: AgentRuntime, enabled: boolean) => void;
   setAgentSettings: (
     updater: (settings: AgentSettings) => AgentSettings,
@@ -35,7 +38,12 @@ const broadcastChannel = createBroadcastChannel();
 
 export const useSettingsStore = create<SettingsState>()((set, get) => ({
   agentSettings: readAgentSettings(),
+  availableAgentOptions: [],
   language: readLanguage(),
+  refreshAvailableAgentOptions: async () => {
+    const availableAgentOptions = await getApiClient().agents.listAvailable();
+    set({ availableAgentOptions });
+  },
   setAgentEnabled: (runtime, enabled) => {
     updateSettingsState(set, get, (current) => {
       const enabledRuntimes = new Set(current.agentSettings.enabledRuntimes);
@@ -73,6 +81,11 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   },
   themeMode: readDesktopThemeMode(),
 }));
+
+void useSettingsStore
+  .getState()
+  .refreshAvailableAgentOptions()
+  .catch(() => {});
 
 broadcastChannel?.addEventListener("message", (event) => {
   const message = readBroadcastMessage(event.data);

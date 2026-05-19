@@ -1,4 +1,4 @@
-import type { AgentRuntime, AgentSettings } from "@shared/agents";
+import type { AgentOption, AgentRuntime, AgentSettings } from "@shared/agents";
 import type { KeyboardEvent, ReactNode } from "react";
 import type { SupportedLanguage } from "@/i18n";
 import type { DesktopThemeMode } from "@/platform/theme";
@@ -16,7 +16,6 @@ import {
   RiErrorWarningLine as AlertTriangle,
   RiDeleteBinLine as Trash2,
 } from "@remixicon/react";
-import { AGENT_OPTIONS } from "@shared/agents";
 import { useCallback, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
@@ -61,11 +60,13 @@ const agentIconUrl: Record<AgentRuntime, string> = {
 
 export function SettingsPage({
   agentSettings,
+  availableAgentOptions,
   isDeletingChats,
   onAgentEnabledChange,
   onDeleteAllChats,
 }: {
   agentSettings: AgentSettings;
+  availableAgentOptions: AgentOption[];
   isDeletingChats: boolean;
   onAgentEnabledChange: (runtime: AgentRuntime, enabled: boolean) => void;
   onDeleteAllChats: () => Promise<void>;
@@ -77,6 +78,9 @@ export function SettingsPage({
   const language = useSettingsStore((state) => state.language);
   const setLanguage = useSettingsStore((state) => state.setLanguage);
   const enabledRuntimeSet = new Set(agentSettings.enabledRuntimes);
+  const visibleEnabledCount = availableAgentOptions.filter((agent) =>
+    enabledRuntimeSet.has(agent.id),
+  ).length;
   const activeTabLabel = t(
     settingsTabs.find((tab) => tab.id === activeTab)?.labelKey ??
       settingsTabs[0].labelKey,
@@ -204,10 +208,9 @@ export function SettingsPage({
             >
               <SettingsGroup>
                 <>
-                  {AGENT_OPTIONS.map((agent) => {
+                  {availableAgentOptions.map((agent) => {
                     const enabled = enabledRuntimeSet.has(agent.id);
-                    const isOnlyEnabled =
-                      enabled && agentSettings.enabledRuntimes.length <= 1;
+                    const isOnlyEnabled = enabled && visibleEnabledCount <= 1;
 
                     return (
                       <SettingsRow

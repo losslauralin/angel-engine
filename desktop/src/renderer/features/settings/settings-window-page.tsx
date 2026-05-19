@@ -9,6 +9,7 @@ import { deleteAllChatsMutationOptions } from "@/features/chat/api/queries";
 import { broadcastAllChatsDeleted } from "@/features/chat/chat-metadata-events";
 import { cancelAllChatRuns } from "@/features/chat/state/chat-run-store";
 import { SettingsPage } from "@/features/settings/settings-page";
+import { useSettingsStore } from "@/features/settings/settings-store";
 import { useAgentSettings } from "@/features/settings/use-agent-settings";
 import { queryKeys } from "@/platform/query-keys";
 import { useApi } from "@/platform/use-api";
@@ -21,6 +22,9 @@ export function SettingsWindowPage() {
   const { t } = useTranslation();
   const toast = useToast();
   const [agentSettings, updateAgentSettings] = useAgentSettings();
+  const availableAgentOptions = useSettingsStore(
+    (state) => state.availableAgentOptions,
+  );
   const deleteAllChatsMutation = useMutation({
     ...deleteAllChatsMutationOptions({ api, queryClient }),
   });
@@ -69,6 +73,7 @@ export function SettingsWindowPage() {
     <div className="flex h-svh min-h-0 overflow-auto bg-background">
       <SettingsPage
         agentSettings={agentSettings}
+        availableAgentOptions={availableAgentOptions}
         isDeletingChats={deleteAllChatsMutation.isPending}
         onAgentEnabledChange={setAgentEnabled}
         onDeleteAllChats={deleteAllChats}
