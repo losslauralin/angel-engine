@@ -3,6 +3,7 @@ import type { DesktopWindowCommand } from "../../shared/desktop-window";
 
 import { app, BrowserWindow, Menu } from "electron";
 import { DESKTOP_COMMAND_CHANNEL } from "../../shared/desktop-window";
+import { checkForUpdatesFromMenu } from "../updater";
 import { translate } from "./i18n";
 
 const isMacOS = process.platform === "darwin";
@@ -29,6 +30,7 @@ function menuTemplate({
             label: app.name,
             submenu: [
               { role: "about" },
+              updateItem(),
               { type: "separator" },
               settingsItem(
                 openSettingsWindow,
@@ -116,7 +118,14 @@ function menuTemplate({
     },
     {
       role: "help",
-      submenu: [],
+      submenu: [
+        ...(!isMacOS
+          ? [
+              { role: "about" } satisfies MenuItemConstructorOptions,
+              updateItem(),
+            ]
+          : []),
+      ],
     },
   ];
 }
@@ -144,6 +153,13 @@ function commandItem(
       sendCommand(command);
     },
     label,
+  };
+}
+
+function updateItem(): MenuItemConstructorOptions {
+  return {
+    click: checkForUpdatesFromMenu,
+    label: translate("updates.checkForUpdates"),
   };
 }
 

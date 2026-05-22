@@ -140,6 +140,26 @@ export const ja = {
       },
       title: "設定",
     },
+    updates: {
+      checkFailed: "アップデートを確認できませんでした",
+      checkFailedDetail: "後でもう一度お試しください。",
+      checkForUpdates: "アップデートを確認...",
+      checking: "アップデートを確認中",
+      checkingDetail: "Angel Engine はすでにアップデートを確認しています。",
+      devPreviewNotes:
+        "開発プレビューです。パッケージ化されたビルドでは Electron autoUpdater を使用します。",
+      devPreviewVersion: "開発プレビュー {{version}}",
+      downloaded: "アップデートの準備ができました",
+      downloadedDetail:
+        "アップデートのダウンロードが完了し、インストールできます。",
+      restartAndInstall: "再起動してインストール",
+      title: "Angel Engine アップデート",
+      unsupportedPlatform: "アップデートは利用できません",
+      unsupportedPlatformDetail:
+        "自動アップデートは macOS と Windows でサポートされています。",
+      upToDate: "Angel Engine は最新です",
+      upToDateDetail: "バージョン {{version}} は利用可能な最新バージョンです。",
+    },
     thread: {
       empty: {
         description:

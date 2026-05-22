@@ -153,6 +153,24 @@ export interface LocaleResourceTranslationSettings {
   title: string;
 }
 
+export interface LocaleResourceTranslationUpdates {
+  checkFailed: string;
+  checkFailedDetail: string;
+  checkForUpdates: string;
+  checking: string;
+  checkingDetail: string;
+  devPreviewNotes: string;
+  devPreviewVersion: string;
+  downloaded: string;
+  downloadedDetail: string;
+  restartAndInstall: string;
+  title: string;
+  unsupportedPlatform: string;
+  unsupportedPlatformDetail: string;
+  upToDate: string;
+  upToDateDetail: string;
+}
+
 export interface LocaleResourceTranslationThreadEmpty {
   description: string;
   title: string;
@@ -329,6 +347,7 @@ export interface LocaleResourceTranslation {
   workspace: LocaleResourceTranslationWorkspace;
   sidebar: LocaleResourceTranslationSidebar;
   settings: LocaleResourceTranslationSettings;
+  updates: LocaleResourceTranslationUpdates;
   thread: LocaleResourceTranslationThread;
   composer: LocaleResourceTranslationComposer;
   components: LocaleResourceTranslationComponents;

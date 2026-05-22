@@ -139,6 +139,25 @@ export const ko = {
       },
       title: "설정",
     },
+    updates: {
+      checkFailed: "업데이트를 확인할 수 없음",
+      checkFailedDetail: "나중에 다시 시도하세요.",
+      checkForUpdates: "업데이트 확인...",
+      checking: "업데이트 확인 중",
+      checkingDetail: "Angel Engine이 이미 업데이트를 확인하고 있습니다.",
+      devPreviewNotes:
+        "개발 미리보기입니다. 패키징된 빌드는 Electron autoUpdater를 사용합니다.",
+      devPreviewVersion: "개발 미리보기 {{version}}",
+      downloaded: "업데이트 준비됨",
+      downloadedDetail: "업데이트가 다운로드되었으며 설치할 준비가 되었습니다.",
+      restartAndInstall: "다시 시작하여 설치",
+      title: "Angel Engine 업데이트",
+      unsupportedPlatform: "업데이트를 사용할 수 없음",
+      unsupportedPlatformDetail:
+        "자동 업데이트는 macOS와 Windows에서 지원됩니다.",
+      upToDate: "Angel Engine이 최신 상태입니다",
+      upToDateDetail: "버전 {{version}}이 사용 가능한 최신 버전입니다.",
+    },
     thread: {
       empty: {
         description:

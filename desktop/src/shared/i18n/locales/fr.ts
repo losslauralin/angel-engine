@@ -140,6 +140,27 @@ export const fr = {
       },
       title: "Paramètres",
     },
+    updates: {
+      checkFailed: "Impossible de rechercher les mises à jour",
+      checkFailedDetail: "Réessayez plus tard.",
+      checkForUpdates: "Rechercher des mises à jour...",
+      checking: "Recherche de mises à jour",
+      checkingDetail: "Angel Engine recherche déjà des mises à jour.",
+      devPreviewNotes:
+        "Aperçu de développement. Les builds empaquetés utilisent Electron autoUpdater.",
+      devPreviewVersion: "Aperçu de développement {{version}}",
+      downloaded: "Mise à jour prête",
+      downloadedDetail:
+        "La mise à jour a été téléchargée et peut être installée.",
+      restartAndInstall: "Redémarrer et installer",
+      title: "Mises à jour Angel Engine",
+      unsupportedPlatform: "Mises à jour indisponibles",
+      unsupportedPlatformDetail:
+        "Les mises à jour automatiques sont prises en charge sur macOS et Windows.",
+      upToDate: "Angel Engine est à jour",
+      upToDateDetail:
+        "La version {{version}} est la dernière version disponible.",
+    },
     thread: {
       empty: {
         description:

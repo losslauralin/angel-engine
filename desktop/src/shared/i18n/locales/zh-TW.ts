@@ -138,6 +138,24 @@ export const zhTW = {
       },
       title: "設定",
     },
+    updates: {
+      checkFailed: "無法檢查更新",
+      checkFailedDetail: "請稍後再試。",
+      checkForUpdates: "檢查更新...",
+      checking: "正在檢查更新",
+      checkingDetail: "Angel Engine 已經在檢查更新。",
+      devPreviewNotes:
+        "開發預覽。打包後的應用程式會使用 Electron autoUpdater。",
+      devPreviewVersion: "開發預覽 {{version}}",
+      downloaded: "更新已就緒",
+      downloadedDetail: "更新已下載完成，可以重新啟動安裝。",
+      restartAndInstall: "重新啟動並安裝",
+      title: "Angel Engine 更新",
+      unsupportedPlatform: "更新不可用",
+      unsupportedPlatformDetail: "自動更新目前支援 macOS 和 Windows。",
+      upToDate: "Angel Engine 已是最新版本",
+      upToDateDetail: "版本 {{version}} 已是目前可用的最新版本。",
+    },
     thread: {
       empty: {
         description: "指定檔案、錯誤、行為或工作區範圍，讓它修補或測試。",

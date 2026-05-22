@@ -139,6 +139,26 @@ export const es = {
       },
       title: "Configuración",
     },
+    updates: {
+      checkFailed: "No se pudieron buscar actualizaciones",
+      checkFailedDetail: "Inténtalo de nuevo más tarde.",
+      checkForUpdates: "Buscar actualizaciones...",
+      checking: "Buscando actualizaciones",
+      checkingDetail: "Angel Engine ya está buscando actualizaciones.",
+      devPreviewNotes:
+        "Vista previa de desarrollo. Las builds empaquetadas usan Electron autoUpdater.",
+      devPreviewVersion: "Vista previa de desarrollo {{version}}",
+      downloaded: "Actualización lista",
+      downloadedDetail:
+        "La actualización se descargó y está lista para instalarse.",
+      restartAndInstall: "Reiniciar e instalar",
+      title: "Actualizaciones de Angel Engine",
+      unsupportedPlatform: "Actualizaciones no disponibles",
+      unsupportedPlatformDetail:
+        "Las actualizaciones automáticas son compatibles con macOS y Windows.",
+      upToDate: "Angel Engine está actualizado",
+      upToDateDetail: "La versión {{version}} es la última versión disponible.",
+    },
     thread: {
       empty: {
         description:
