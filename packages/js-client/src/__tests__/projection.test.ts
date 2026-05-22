@@ -134,13 +134,15 @@ describe("projection", () => {
 
   it("projects turn results and events through the same chat shape", () => {
     const result = projectTurnRunResult({
-      actions: [],
-      message: {
-        content: [toolPart()],
-        id: "message-1",
-        role: "assistant",
-      },
-      text: "done",
+      conversation: conversationSnapshot({
+        messages: [
+          {
+            content: [toolPart()],
+            id: "turn-1:assistant",
+            role: "assistant",
+          },
+        ],
+      }),
       turnId: "turn-1",
     } as TurnRunResult);
     const event = projectTurnRunEvent({

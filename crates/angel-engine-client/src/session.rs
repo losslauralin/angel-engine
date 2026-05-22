@@ -6,17 +6,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::{ClientError, ClientResult};
 use crate::event::{ClientEvent, ClientStreamDelta, ClientUpdate};
-use crate::snapshot::display_message_from_parts;
 use crate::{
     ActionOutputSnapshot, ActionSnapshot, AngelClient, ClientInput, ClientProtocol,
     ConversationSnapshot, ElicitationResponse, ElicitationSnapshot, ResumeConversationRequest,
-    RuntimeOptions, RuntimeOptionsOverrides, StartConversationRequest, ThreadEvent, TurnSnapshot,
+    RuntimeOptions, RuntimeOptionsOverrides, StartConversationRequest, ThreadEvent,
     create_runtime_options,
 };
-use crate::{
-    DisplayMessagePartSnapshot, DisplayMessageSnapshot, DisplayPlanSnapshot,
-    DisplayToolActionSnapshot,
-};
+use crate::{DisplayMessagePartSnapshot, DisplayPlanSnapshot, DisplayToolActionSnapshot};
 
 pub struct AngelSession {
     client: AngelClient,
@@ -105,23 +101,12 @@ pub struct InspectRequest {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TurnRunResult {
-    pub text: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reasoning: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub model: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub remote_thread_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub turn_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub conversation: Option<ConversationSnapshot>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub turn: Option<TurnSnapshot>,
-    #[serde(default)]
-    pub actions: Vec<ActionSnapshot>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub message: Option<DisplayMessageSnapshot>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -280,12 +265,6 @@ impl AngelSession {
             command.request_id.clone(),
         );
         active.handle_update(command.update)?;
-        if command.turn_id.is_none() {
-            if let Some(message) = command.message {
-                active.collector.text = message;
-            }
-        }
-
         if command.turn_id.is_none() && active.request_is_complete() {
             let snapshot = self.thread_state();
             let result = self.final_result(active, snapshot)?;
@@ -567,75 +546,22 @@ impl AngelSession {
         snapshot: Option<ConversationSnapshot>,
     ) -> ClientResult<TurnRunResult> {
         let result_turn_id = active.turn_id.clone();
-        let (actions, message, reasoning, text, turn) = match active.turn_id.as_deref() {
-            Some(turn_id) => {
-                let snapshot = snapshot.as_ref().ok_or_else(|| {
-                    invalid_input("Runtime did not return a final conversation snapshot.")
-                })?;
-                let turn = find_turn(snapshot, turn_id).ok_or_else(|| {
-                    invalid_input(format!(
-                        "Final conversation snapshot is missing turn {turn_id}."
-                    ))
-                })?;
-                let actions = actions_for_turn(snapshot, turn_id);
-                let reasoning = turn_reasoning_text(Some(&turn)).or_else(|| {
-                    (!active.collector.reasoning.is_empty())
-                        .then_some(active.collector.reasoning.clone())
-                });
-                let text = if turn.output_text.is_empty() {
-                    active.collector.text.clone()
-                } else {
-                    turn.output_text.clone()
-                };
-                let message_actions = if actions.is_empty() {
-                    &active.collector.actions
-                } else {
-                    &actions
-                };
-                let message = assistant_message_for_turn(snapshot, turn_id).or_else(|| {
-                    collected_assistant_message(
-                        format!("{turn_id}:assistant"),
-                        &active.collector,
-                        message_actions,
-                        reasoning.clone(),
-                        text.clone(),
-                    )
-                });
-                (actions, message, reasoning, text, Some(turn))
+        if let Some(turn_id) = result_turn_id.as_deref() {
+            let snapshot = snapshot.as_ref().ok_or_else(|| {
+                invalid_input("Runtime did not return a final conversation snapshot.")
+            })?;
+            if !snapshot.turns.iter().any(|turn| turn.id == turn_id) {
+                return Err(invalid_input(format!(
+                    "Final conversation snapshot is missing turn {turn_id}."
+                )));
             }
-            None => {
-                let request_id = active.request_id.as_deref().ok_or_else(|| {
-                    invalid_input("Completed no-turn result is missing request id.")
-                })?;
-                (
-                    Vec::new(),
-                    collected_assistant_message(
-                        format!("result:{request_id}:assistant"),
-                        &active.collector,
-                        &active.collector.actions,
-                        (!active.collector.reasoning.is_empty())
-                            .then_some(active.collector.reasoning.clone()),
-                        active.collector.text.clone(),
-                    ),
-                    (!active.collector.reasoning.is_empty())
-                        .then_some(active.collector.reasoning.clone()),
-                    active.collector.text.clone(),
-                    None,
-                )
-            }
-        };
+        }
 
         Ok(TurnRunResult {
-            actions,
             conversation: snapshot.clone(),
-            message,
-            model: snapshot.as_ref().and_then(current_model),
-            reasoning,
             remote_thread_id: snapshot
                 .as_ref()
                 .and_then(|snapshot| snapshot.remote_id.clone()),
-            text,
-            turn,
             turn_id: result_turn_id,
         })
     }
@@ -994,14 +920,6 @@ impl TurnCollector {
         self.push_plan_event(Some(turn_id), plan, events);
     }
 
-    fn review_plan_message_part(&self) -> Option<DisplayMessagePartSnapshot> {
-        (!self.plan.is_empty()).then(|| DisplayMessagePartSnapshot::plan(self.plan.clone()))
-    }
-
-    fn todo_message_part(&self) -> Option<DisplayMessagePartSnapshot> {
-        (!self.todo.is_empty()).then(|| DisplayMessagePartSnapshot::plan(self.todo.clone()))
-    }
-
     fn push_plan_event(
         &self,
         turn_id: Option<String>,
@@ -1126,75 +1044,11 @@ fn is_result_event(event: &TurnRunEvent) -> bool {
     matches!(event, TurnRunEvent::Result { .. })
 }
 
-fn current_model(snapshot: &ConversationSnapshot) -> Option<String> {
-    snapshot.settings.model_list.current_model_id.clone()
-}
-
-fn find_turn(snapshot: &ConversationSnapshot, turn_id: &str) -> Option<TurnSnapshot> {
-    snapshot
-        .turns
-        .iter()
-        .find(|turn| turn.id == turn_id)
-        .cloned()
-}
-
-fn actions_for_turn(snapshot: &ConversationSnapshot, turn_id: &str) -> Vec<ActionSnapshot> {
-    snapshot
-        .actions
-        .iter()
-        .filter(|action| action.turn_id == turn_id)
-        .cloned()
-        .collect()
-}
-
-fn collected_assistant_message(
-    id: impl Into<String>,
-    collector: &TurnCollector,
-    actions: &[ActionSnapshot],
-    reasoning: Option<String>,
-    text: String,
-) -> Option<DisplayMessageSnapshot> {
-    let mut content = Vec::new();
-    if let Some(reasoning) = reasoning.filter(|text| !text.is_empty()) {
-        content.push(DisplayMessagePartSnapshot::text("reasoning", reasoning));
-    }
-    if let Some(plan_part) = collector.review_plan_message_part() {
-        content.push(plan_part);
-    }
-    for action in actions {
-        content.push(DisplayMessagePartSnapshot::tool(action.into()));
-    }
-    if let Some(todo_part) = collector.todo_message_part() {
-        content.push(todo_part);
-    }
-    if !text.is_empty() {
-        content.push(DisplayMessagePartSnapshot::text("text", text));
-    }
-    display_message_from_parts(id, "assistant", content)
-}
-
-fn assistant_message_for_turn(
-    snapshot: &ConversationSnapshot,
-    turn_id: &str,
-) -> Option<DisplayMessageSnapshot> {
-    let message_id = format!("{turn_id}:assistant");
-    snapshot
-        .messages
-        .iter()
-        .find(|message| message.id == message_id)
-        .cloned()
-}
-
 fn turn_run_delta_part(part: &str) -> TurnRunDeltaPart {
     match part {
         "reasoning" => TurnRunDeltaPart::Reasoning,
         _ => TurnRunDeltaPart::Text,
     }
-}
-
-fn turn_reasoning_text(turn: Option<&TurnSnapshot>) -> Option<String> {
-    let turn = turn?;
-    (!turn.reasoning_text.trim().is_empty()).then(|| turn.reasoning_text.clone())
 }
 
 fn selected_config_value(value: Option<&str>) -> Option<String> {
@@ -1421,21 +1275,15 @@ mod tests {
     }
 
     #[test]
-    fn turn_run_result_serializes_empty_actions() {
+    fn turn_run_result_serializes_snapshot_identity() {
         let value = serde_json::to_value(TurnRunResult {
-            actions: Vec::new(),
             conversation: None,
-            message: None,
-            model: None,
-            reasoning: None,
             remote_thread_id: None,
-            text: "done".to_string(),
-            turn: None,
             turn_id: None,
         })
         .unwrap();
 
-        assert_eq!(value.get("actions"), Some(&serde_json::json!([])));
+        assert_eq!(value, serde_json::json!({}));
     }
 
     fn elicitation(phase: &str) -> ElicitationSnapshot {

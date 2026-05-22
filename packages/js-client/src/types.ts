@@ -59,7 +59,7 @@ export interface Chat {
 }
 
 export interface ChatCreateInput {
-  model?: string | null;
+  model?: string;
   mode?: string | null;
   permissionMode?: string | null;
   projectId?: string;
@@ -224,7 +224,7 @@ export type ChatAttachmentInput =
 export interface ChatSendInput {
   attachments?: ChatAttachmentInput[];
   chatId?: string;
-  model?: string | null;
+  model?: string;
   mode?: string | null;
   permissionMode?: string | null;
   prewarmId?: string;
@@ -235,14 +235,14 @@ export interface ChatSendInput {
 }
 
 export interface ChatSendResult {
-  actions: TurnRunResult["actions"];
+  actions: ChatToolAction[];
   chat: Chat;
   chatId: string;
   config?: ChatRuntimeConfig;
   content: ChatHistoryMessagePart[];
-  model?: TurnRunResult["model"];
-  reasoning?: TurnRunResult["reasoning"];
-  text: TurnRunResult["text"];
+  model?: string;
+  reasoning?: string;
+  text: string;
   turnId?: TurnRunResult["turnId"];
 }
 
@@ -270,8 +270,7 @@ type ChatElicitationStreamEvent = {
 };
 
 type ChatResultStreamEvent = {
-  result: Omit<TurnRunResult, "conversation" | "message" | "turn"> &
-    ChatSendResult;
+  result: ChatSendResult;
   type: "result";
 };
 

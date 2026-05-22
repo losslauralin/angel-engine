@@ -66,7 +66,6 @@ import {
 import {
   actionObserved,
   actionOutputUpdated,
-  activeTurnSnapshot,
   assistantDelta,
   availableCommandsUpdated,
   configValuesFromIds,
@@ -724,26 +723,11 @@ export class ClaudeCodeSession {
 
   private finishTurn(active: ActiveClaudeTurn): TurnRunResult {
     const snapshot = this.requireConversation();
-    const turn = activeTurnSnapshot(snapshot, active.turnId);
-    const actions = snapshot.actions.filter(
-      (action) => action.turnId === active.turnId,
-    );
-    const resultText =
-      turn?.outputText ||
-      (active.finalResult?.subtype === "success"
-        ? active.finalResult.result
-        : "") ||
-      "Claude Code finished without text output.";
 
     return {
-      actions,
       conversation: snapshot,
-      model: snapshot.settings.modelList.currentModelId ?? active.model,
-      reasoning: turn?.reasoningText || undefined,
       remoteThreadId:
         snapshot.remoteKind === "known" ? snapshot.remoteId : undefined,
-      text: resultText,
-      turn,
       turnId: active.turnId,
     };
   }

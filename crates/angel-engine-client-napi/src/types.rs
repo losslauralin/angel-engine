@@ -603,15 +603,9 @@ pub struct InspectRequest {
 
 #[napi(object)]
 pub struct TurnRunResult {
-    pub text: String,
-    pub reasoning: Option<String>,
-    pub model: Option<String>,
     pub remote_thread_id: Option<String>,
     pub turn_id: Option<String>,
     pub conversation: Option<ConversationSnapshot>,
-    pub turn: Option<TurnSnapshot>,
-    pub actions: Vec<ActionSnapshot>,
-    pub message: Option<DisplayMessageSnapshot>,
 }
 
 #[napi(object)]

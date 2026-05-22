@@ -1087,8 +1087,6 @@ async function consumeRunStream({
         accumulator.result = event.result;
         if (accumulator.parts.length === 0) {
           accumulator.parts = event.result.content.map(cloneChatHistoryPart);
-        } else {
-          mergeFinalResultParts(accumulator.parts, event.result.content);
         }
         markChatAttention(event.result.chatId, "completed");
         dirty = true;
@@ -1674,35 +1672,6 @@ function toolActionDeltaText(action: ChatToolAction) {
     throw new Error("Tool action delta is missing output.");
   }
   return action.output.map((chunk) => chunk.text).join("");
-}
-
-function mergeFinalResultParts(
-  parts: ChatHistoryMessagePart[],
-  finalParts: ChatHistoryMessagePart[],
-) {
-  for (const part of finalParts) {
-    if (isChatPlanPart(part)) {
-      upsertTurnPlanPartAtEnd(parts, part.data);
-    } else if (part.type === "data" && part.name === "elicitation") {
-      upsertElicitationPart(parts, part.data);
-    } else if (part.type === "tool-call") {
-      upsertToolActionPart(parts, part.artifact);
-    } else if (part.type === "text") {
-      const index = parts.findIndex((p) => p.type === "text");
-      if (index !== -1) {
-        parts[index] = part;
-      } else {
-        parts.push(part);
-      }
-    } else if (part.type === "reasoning") {
-      const index = parts.findIndex((p) => p.type === "reasoning");
-      if (index !== -1) {
-        parts[index] = part;
-      } else {
-        parts.push(part);
-      }
-    }
-  }
 }
 
 function upsertTurnPlanPartAtEnd(

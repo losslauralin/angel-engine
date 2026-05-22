@@ -267,10 +267,10 @@ export async function streamChat(
   if (input.text) {
     renameChatFromPrompt(chat.id, input.text);
   }
-  const finalChat = result.remoteThreadId
-    ? setChatRemoteThreadId(chat.id, result.remoteThreadId)
-    : touchChat(chat.id);
   const projected = projectTurnRunResult(result);
+  const finalChat = projected.remoteThreadId
+    ? setChatRemoteThreadId(chat.id, projected.remoteThreadId)
+    : touchChat(chat.id);
   const content = projected.content;
 
   return {
@@ -278,7 +278,7 @@ export async function streamChat(
     chatId: finalChat.id,
     config: projected.config,
     content,
-    model: projected.model,
+    model: projected.model ?? undefined,
     reasoning: projected.reasoning,
     text: projected.text,
     turnId: projected.turnId,

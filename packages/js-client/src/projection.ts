@@ -8,7 +8,6 @@ import type {
   ElicitationSnapshot,
   TurnRunEvent,
   TurnRunResult,
-  TurnSnapshot,
 } from "@angel-engine/client-napi";
 import type {
   ChatElicitation,
@@ -25,6 +24,7 @@ import { TurnRunEventType } from "@angel-engine/client-napi";
 import is from "@sindresorhus/is";
 import {
   appendChatTextPart,
+  chatPartsText,
   chatPlanPartName,
   chatToolActionToPart,
 } from "./utils/index.js";
@@ -179,28 +179,41 @@ export function runtimeConfigFromConversationSnapshot(
 }
 
 export function projectTurnRunResult(result: TurnRunResult) {
-  let content: ChatHistoryMessagePart[] = [];
-  if (result.message) {
-    content = displayMessagePartsToChatParts(result.message.content);
-  } else if (result.turn) {
-    content = contentFromTurnSnapshot(result.turn, result.actions);
-  }
-
-  if (content.length === 0 && result.text) {
-    content.push({ text: result.text, type: "text" });
-  }
+  const snapshot = result.conversation;
+  const config = snapshot
+    ? runtimeConfigFromConversationSnapshot(snapshot)
+    : undefined;
+  const message = snapshot
+    ? finalAssistantMessage(conversationMessages(snapshot), result.turnId)
+    : undefined;
+  const content = message?.content ?? [];
 
   return {
-    config: result.conversation
-      ? runtimeConfigFromConversationSnapshot(result.conversation)
-      : undefined,
+    config,
     content,
-    model: result.model,
-    reasoning: result.reasoning,
-    remoteThreadId: result.remoteThreadId,
-    text: result.text,
+    model: config?.currentModel ?? undefined,
+    reasoning: chatPartsText(content, "reasoning") || undefined,
+    remoteThreadId: snapshot?.remoteId ?? undefined,
+    text: chatPartsText(content, "text"),
     turnId: result.turnId,
   };
+}
+
+function finalAssistantMessage(
+  messages: ChatHistoryMessage[],
+  turnId?: string | null,
+) {
+  const expectedId = turnId ? `${turnId}:assistant` : undefined;
+  if (expectedId) {
+    return messages.find(
+      (message) => message.role === "assistant" && message.id === expectedId,
+    );
+  }
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message?.role === "assistant") return message;
+  }
+  return undefined;
 }
 
 export function projectTurnRunEvent(
@@ -233,23 +246,6 @@ export function projectTurnRunEvent(
   }
 
   return undefined;
-}
-
-function contentFromTurnSnapshot(
-  turn: TurnSnapshot,
-  actions: ActionSnapshot[],
-): ChatHistoryMessagePart[] {
-  const parts: ChatHistoryMessagePart[] = [];
-  appendChatTextPart(parts, "reasoning", turn.reasoningText);
-  const plan = planFromTurnSnapshot(turn);
-  if (plan) parts.push(planMessagePartData(plan));
-  for (const action of actions) {
-    parts.push(chatPartFromAction(toChatAction(action)));
-  }
-  const todo = todoFromTurnSnapshot(turn);
-  if (todo) parts.push(planMessagePartData(todo));
-  appendChatTextPart(parts, "text", turn.outputText);
-  return parts;
 }
 
 function projectMessagePart(
@@ -314,32 +310,6 @@ function planMessagePartData(plan: ChatPlanData): ChatHistoryMessagePart {
     name: chatPlanPartName(plan),
     type: "data",
   };
-}
-
-function planFromTurnSnapshot(turn: TurnSnapshot): ChatPlanData | undefined {
-  const data: ChatPlanData = {
-    entries: turn.plan.map((entry) => ({
-      content: entry.content,
-      status: entry.status,
-    })),
-    kind: "review",
-    path: turn.planPath ?? null,
-    text: turn.planText,
-  };
-  return isEmptyPlan(data) ? undefined : data;
-}
-
-function todoFromTurnSnapshot(turn: TurnSnapshot): ChatPlanData | undefined {
-  const data: ChatPlanData = {
-    entries: turn.todo.map((entry) => ({
-      content: entry.content,
-      status: entry.status,
-    })),
-    kind: "todo",
-    path: null,
-    text: "",
-  };
-  return isEmptyPlan(data) ? undefined : data;
 }
 
 function toChatPlanData(plan: DisplayPlanSnapshot): ChatPlanData {

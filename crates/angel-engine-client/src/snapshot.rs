@@ -532,18 +532,6 @@ fn elicitation_action_phase(phase: &str) -> &'static str {
     }
 }
 
-pub(crate) fn display_message_from_parts(
-    id: impl Into<String>,
-    role: impl Into<String>,
-    content: Vec<DisplayMessagePartSnapshot>,
-) -> Option<DisplayMessageSnapshot> {
-    (!content.is_empty()).then(|| DisplayMessageSnapshot {
-        id: id.into(),
-        role: role.into(),
-        content,
-    })
-}
-
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ContextSnapshot {
