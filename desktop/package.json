@@ -13,7 +13,7 @@
   "keywords": [],
   "main": ".vite/build/main.js",
   "scripts": {
-    "runtime:build": "pnpm --filter @angel-engine/js-client build && pnpm --filter @angel-engine/claude-client build && pnpm --filter @angel-engine/client-napi build",
+    "runtime:build": "pnpm --filter @angel-engine/client-napi build && pnpm --filter @angel-engine/js-client build && pnpm --filter @angel-engine/claude-client build",
     "prestart": "pnpm run runtime:build",
     "start": "electron-forge start",
     "prepackage": "pnpm run runtime:build && pnpm run rebuild:native",
