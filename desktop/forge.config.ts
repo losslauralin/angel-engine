@@ -25,6 +25,21 @@ const macSignKeychain = process.env.ANGEL_ENGINE_MAC_SIGN_KEYCHAIN;
 const macSignIdentityValidation =
   process.env.ANGEL_ENGINE_MAC_SIGN_IDENTITY_VALIDATION !== "false";
 const fallbackAdHocSign = process.platform === "darwin" && !macSignIdentity;
+const appleApiKey = process.env.APPLE_API_KEY;
+const appleApiKeyId = process.env.APPLE_API_KEY_ID;
+const appleApiIssuer = process.env.APPLE_API_ISSUER;
+const macNotarize =
+  process.platform === "darwin" &&
+  appleApiKey &&
+  appleApiKeyId &&
+  appleApiIssuer
+    ? {
+        tool: "notarytool" as const,
+        appleApiKey,
+        appleApiKeyId,
+        appleApiIssuer,
+      }
+    : undefined;
 
 function copyRuntimePath(buildPath: string, relativePath: string) {
   fs.cpSync(
@@ -97,6 +112,7 @@ const config: ForgeConfig = {
     },
   },
   packagerConfig: {
+    appBundleId: "com.akrc.angel-engine",
     asar: true,
     icon: appIconPath,
     osxSign:
@@ -108,11 +124,11 @@ const config: ForgeConfig = {
               ? false
               : macSignIdentityValidation,
             optionsForFile: () => ({
-              hardenedRuntime: false,
-              signatureFlags: [],
+              hardenedRuntime: true,
             }),
           }
         : undefined,
+    osxNotarize: macNotarize,
   },
   rebuildConfig: {},
   makers: [
