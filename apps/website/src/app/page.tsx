@@ -49,7 +49,6 @@ const integrations = [
   { icon: claudeCodeIcon, name: "Claude Code" },
 ];
 
-
 const faqs = [
   [
     "What is Angel Engine?",
@@ -169,8 +168,11 @@ export default function Home() {
               project-aware desktop client.
             </p>
             <div className="hero-actions">
-              <a className="primary-button" href={repoUrl}>
-                Open desktop
+              <a
+                className="primary-button"
+                href="https://github.com/AkaraChen/angel-engine/releases/latest"
+              >
+                Download
               </a>
               <a className="secondary-button" href={repoUrl}>
                 <ChevronDownIcon />
@@ -235,8 +237,8 @@ export default function Home() {
               <span>Angel Engine</span>
             </Link>
             <p>
-              A desktop client for project-aware coding agent chats, tool calls,
-              settings, and restored history.
+              Angel Engine brings Codex, OpenCode, and Claude Code chats into a
+              project-aware desktop client.
             </p>
           </div>
           {[
