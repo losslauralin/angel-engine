@@ -3,7 +3,7 @@ import Script from "next/script";
 import ogImage from "../../public/og-image.png";
 import "./globals.css";
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://angel-engine.dev";
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://ag.akr.moe";
 const title = "Angel Engine - Desktop Chat for Coding Agents";
 const description =
   "A desktop app for Codex, OpenCode, and Claude Code chats, with project-aware threads, tool calls, and agent settings in one focused client.";
