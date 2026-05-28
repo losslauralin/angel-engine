@@ -24,12 +24,22 @@ pub struct ClientOptions {
     #[serde(default)]
     #[garde(skip)]
     pub additional_directories: Vec<String>,
+    #[serde(default)]
+    #[garde(skip)]
+    pub environment: Vec<ClientEnvironmentVariable>,
     #[serde(default = "default_experimental_api")]
     #[garde(skip)]
     pub experimental_api: bool,
     #[serde(default)]
     #[garde(skip)]
     pub process_label: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClientEnvironmentVariable {
+    pub name: String,
+    pub value: String,
 }
 
 impl ClientOptions {
@@ -237,6 +247,18 @@ impl ClientOptionsBuilder {
         self
     }
 
+    pub fn environment_variable(
+        mut self,
+        name: impl Into<String>,
+        value: impl Into<String>,
+    ) -> Self {
+        self.options.environment.push(ClientEnvironmentVariable {
+            name: name.into(),
+            value: value.into(),
+        });
+        self
+    }
+
     pub fn experimental_api(mut self, value: bool) -> Self {
         self.options.experimental_api = value;
         self
@@ -263,6 +285,7 @@ impl Default for ClientOptionsBuilder {
                 identity: ClientIdentity::default(),
                 cwd: None,
                 additional_directories: Vec::new(),
+                environment: Vec::new(),
                 experimental_api: default_experimental_api(),
                 process_label: None,
             },

@@ -1,4 +1,11 @@
-import type { AgentOption, AgentRuntime, AgentSettings } from "@shared/agents";
+import type {
+  AgentOption,
+  AgentRuntime,
+  AgentSettings,
+  CreateCustomAgentInput,
+  CustomAgent,
+  UpdateCustomAgentInput,
+} from "@shared/agents";
 import type { KeyboardEvent, ReactNode } from "react";
 import type { SupportedLanguage } from "@/i18n";
 import type { DesktopThemeMode } from "@/platform/theme";
@@ -11,22 +18,32 @@ import geminiIconUrl from "@lobehub/icons-static-svg/icons/geminicli-color.svg";
 import kimiIconUrl from "@lobehub/icons-static-svg/icons/kimi-color.svg";
 import opencodeIconUrl from "@lobehub/icons-static-svg/icons/opencode.svg";
 import qoderIconUrl from "@lobehub/icons-static-svg/icons/qoder-color.svg";
-
 import {
   RiErrorWarningLine as AlertTriangle,
+  RiRobot2Line as Bot,
+  RiPencilLine as Pencil,
+  RiAddLine as Plus,
+  RiSaveLine as Save,
   RiDeleteBinLine as Trash2,
+  RiCloseLine as X,
 } from "@remixicon/react";
+
+import { isCustomAgentRuntime } from "@shared/agents";
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   NativeSelect,
   NativeSelectOption,
 } from "@/components/ui/native-select";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { useSettingsStore } from "@/features/settings/settings-store";
 import { useThemeSettings } from "@/features/settings/use-theme-settings";
 import { languageOptions } from "@/i18n";
+import { queryKeys } from "@/platform/query-keys";
 import { cn } from "@/platform/utils";
 
 type SettingsTab = "agents" | "appearance" | "danger";
@@ -46,7 +63,7 @@ const themeModeOptions: Array<{
   { labelKey: "settings.appearance.themeOptions.dark", value: "dark" },
 ];
 
-const agentIconUrl: Record<AgentRuntime, string> = {
+const agentIconUrl: Partial<Record<AgentRuntime, string>> = {
   claude: claudeIconUrl,
   cline: clineIconUrl,
   codex: codexIconUrl,
@@ -72,11 +89,28 @@ export function SettingsPage({
   onDeleteAllChats: () => Promise<void>;
 }) {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const tabPanelId = useId();
   const [activeTab, setActiveTab] = useState<SettingsTab>("agents");
   const [themeMode, setThemeMode] = useThemeSettings();
   const language = useSettingsStore((state) => state.language);
   const setLanguage = useSettingsStore((state) => state.setLanguage);
+  const customAgents = useSettingsStore((state) => state.customAgents);
+  const createCustomAgent = useSettingsStore(
+    (state) => state.createCustomAgent,
+  );
+  const updateCustomAgent = useSettingsStore(
+    (state) => state.updateCustomAgent,
+  );
+  const deleteCustomAgent = useSettingsStore(
+    (state) => state.deleteCustomAgent,
+  );
+  const deleteCustomAgentImpact = useSettingsStore(
+    (state) => state.deleteCustomAgentImpact,
+  );
+  const builtinAgentOptions = availableAgentOptions.filter(
+    (agent) => !isCustomAgentRuntime(agent.id),
+  );
   const enabledRuntimeSet = new Set(agentSettings.enabledRuntimes);
   const visibleEnabledCount = availableAgentOptions.filter((agent) =>
     enabledRuntimeSet.has(agent.id),
@@ -208,7 +242,7 @@ export function SettingsPage({
             >
               <SettingsGroup>
                 <>
-                  {availableAgentOptions.map((agent) => {
+                  {builtinAgentOptions.map((agent) => {
                     const enabled = enabledRuntimeSet.has(agent.id);
                     const isOnlyEnabled = enabled && visibleEnabledCount <= 1;
 
@@ -235,12 +269,16 @@ export function SettingsPage({
                             rounded-lg border border-foreground/10 bg-background
                           "
                         >
-                          <img
-                            alt=""
-                            className="size-5 object-contain"
-                            draggable={false}
-                            src={agentIconUrl[agent.id]}
-                          />
+                          {agentIconUrl[agent.id] ? (
+                            <img
+                              alt=""
+                              className="size-5 object-contain"
+                              draggable={false}
+                              src={agentIconUrl[agent.id]}
+                            />
+                          ) : (
+                            <Bot className="size-5 text-muted-foreground" />
+                          )}
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-sm font-medium">
@@ -252,6 +290,21 @@ export function SettingsPage({
                   })}
                 </>
               </SettingsGroup>
+              <CustomAgentsSettingsGroup
+                customAgents={customAgents}
+                enabledRuntimeSet={enabledRuntimeSet}
+                visibleEnabledCount={visibleEnabledCount}
+                onAgentEnabledChange={onAgentEnabledChange}
+                onCreateCustomAgent={createCustomAgent}
+                onDeleteCustomAgent={deleteCustomAgent}
+                onDeletedCustomAgent={async () => {
+                  await queryClient.invalidateQueries({
+                    queryKey: queryKeys.chats.all(),
+                  });
+                }}
+                onDeleteCustomAgentImpact={deleteCustomAgentImpact}
+                onUpdateCustomAgent={updateCustomAgent}
+              />
             </div>
           ) : null}
 
@@ -354,6 +407,284 @@ function SettingsGroup({
   );
 }
 
+function CustomAgentsSettingsGroup({
+  customAgents,
+  enabledRuntimeSet,
+  visibleEnabledCount,
+  onAgentEnabledChange,
+  onCreateCustomAgent,
+  onDeleteCustomAgent,
+  onDeletedCustomAgent,
+  onDeleteCustomAgentImpact,
+  onUpdateCustomAgent,
+}: {
+  customAgents: CustomAgent[];
+  enabledRuntimeSet: Set<AgentRuntime>;
+  visibleEnabledCount: number;
+  onAgentEnabledChange: (runtime: AgentRuntime, enabled: boolean) => void;
+  onCreateCustomAgent: (input: CreateCustomAgentInput) => Promise<CustomAgent>;
+  onDeleteCustomAgent: (runtime: AgentRuntime) => Promise<void>;
+  onDeletedCustomAgent: () => Promise<void>;
+  onDeleteCustomAgentImpact: (
+    runtime: AgentRuntime,
+  ) => Promise<{ chatCount: number }>;
+  onUpdateCustomAgent: (input: UpdateCustomAgentInput) => Promise<CustomAgent>;
+}) {
+  const [editingAgent, setEditingAgent] = useState<CustomAgent | null>(null);
+  const [creating, setCreating] = useState(false);
+  const deleteAgent = useCallback(
+    async (agent: CustomAgent) => {
+      const impact = await onDeleteCustomAgentImpact(agent.id);
+      const confirmed = await window.desktopWindow.confirmDeleteCustomAgent({
+        chatCount: impact.chatCount,
+        label: agent.label,
+      });
+      if (!confirmed) return;
+
+      await onDeleteCustomAgent(agent.id);
+      await onDeletedCustomAgent();
+    },
+    [onDeleteCustomAgent, onDeletedCustomAgent, onDeleteCustomAgentImpact],
+  );
+
+  return (
+    <SettingsGroup title="Custom Agents">
+      {customAgents.map((agent) => {
+        const enabled = enabledRuntimeSet.has(agent.id);
+        const isOnlyEnabled = enabled && visibleEnabledCount <= 1;
+
+        return (
+          <SettingsRow
+            after={
+              <div className="flex items-center gap-1.5">
+                <AgentEnabledSwitch
+                  checked={enabled}
+                  disabled={isOnlyEnabled}
+                  label={`Enable ${agent.label}`}
+                  onCheckedChange={(checked) =>
+                    onAgentEnabledChange(agent.id, checked)
+                  }
+                />
+                <Button
+                  aria-label={`Edit ${agent.label}`}
+                  onClick={() => setEditingAgent(agent)}
+                  size="icon-xs"
+                  type="button"
+                  variant="ghost"
+                >
+                  <Pencil />
+                </Button>
+                <Button
+                  aria-label={`Delete ${agent.label}`}
+                  onClick={() => void deleteAgent(agent)}
+                  size="icon-xs"
+                  type="button"
+                  variant="ghost"
+                >
+                  <Trash2 />
+                </Button>
+              </div>
+            }
+            key={agent.id}
+            muted={!enabled}
+          >
+            <span
+              className="
+                flex size-9 shrink-0 items-center justify-center rounded-lg
+                border border-foreground/10 bg-background
+              "
+            >
+              <Bot className="size-5 text-muted-foreground" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-medium">
+                {agent.label}
+              </span>
+              <span
+                className="
+                mt-0.5 block truncate text-xs text-muted-foreground
+              "
+              >
+                {[agent.command, ...agent.args].join(" ")}
+              </span>
+            </span>
+          </SettingsRow>
+        );
+      })}
+      {creating || editingAgent ? (
+        <CustomAgentForm
+          agent={editingAgent}
+          onCancel={() => {
+            setCreating(false);
+            setEditingAgent(null);
+          }}
+          onCreate={async (input) => {
+            await onCreateCustomAgent(input);
+            setCreating(false);
+          }}
+          onUpdate={async (input) => {
+            await onUpdateCustomAgent(input);
+            setEditingAgent(null);
+          }}
+        />
+      ) : (
+        <article className="flex items-center justify-between gap-3 px-4 py-3">
+          <span className="text-sm text-muted-foreground">
+            Custom ACP agents store environment variables locally in plain text.
+          </span>
+          <Button
+            onClick={() => setCreating(true)}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            <Plus />
+            Add Agent
+          </Button>
+        </article>
+      )}
+    </SettingsGroup>
+  );
+}
+
+function CustomAgentForm({
+  agent,
+  onCancel,
+  onCreate,
+  onUpdate,
+}: {
+  agent: CustomAgent | null;
+  onCancel: () => void;
+  onCreate: (input: CreateCustomAgentInput) => Promise<void>;
+  onUpdate: (input: UpdateCustomAgentInput) => Promise<void>;
+}) {
+  const [label, setLabel] = useState(agent?.label ?? "");
+  const [command, setCommand] = useState(agent?.command ?? "");
+  const [args, setArgs] = useState(agent?.args.join("\n") ?? "");
+  const [environment, setEnvironment] = useState(
+    agent?.environment.map((item) => `${item.name}=${item.value}`).join("\n") ??
+      "",
+  );
+  const [needAuth, setNeedAuth] = useState(agent?.needAuth ?? false);
+  const [autoAuthenticate, setAutoAuthenticate] = useState(
+    agent?.autoAuthenticate ?? false,
+  );
+  const [saving, setSaving] = useState(false);
+  const canSave = label.trim().length > 0 && command.trim().length > 0;
+  const save = useCallback(async () => {
+    setSaving(true);
+    const input = {
+      args: argsToList(args),
+      autoAuthenticate,
+      command,
+      environment: environmentToList(environment),
+      label,
+      needAuth,
+    };
+    try {
+      if (agent) {
+        await onUpdate({ ...input, id: agent.id });
+      } else {
+        await onCreate(input);
+      }
+    } finally {
+      setSaving(false);
+    }
+  }, [
+    agent,
+    args,
+    autoAuthenticate,
+    command,
+    environment,
+    label,
+    needAuth,
+    onCreate,
+    onUpdate,
+  ]);
+
+  return (
+    <article className="space-y-3 px-4 py-3">
+      <div className="grid grid-cols-2 gap-3">
+        <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
+          Name
+          <Input
+            onChange={(event) => setLabel(event.currentTarget.value)}
+            value={label}
+          />
+        </label>
+        <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
+          Command
+          <Input
+            onChange={(event) => setCommand(event.currentTarget.value)}
+            placeholder="my-agent"
+            value={command}
+          />
+        </label>
+      </div>
+      <label
+        className="
+        block space-y-1.5 text-xs font-medium text-muted-foreground
+      "
+      >
+        Args
+        <Textarea
+          className="min-h-20 text-sm"
+          onChange={(event) => setArgs(event.currentTarget.value)}
+          placeholder={"acp\n--stdio"}
+          value={args}
+        />
+      </label>
+      <label
+        className="
+        block space-y-1.5 text-xs font-medium text-muted-foreground
+      "
+      >
+        Environment
+        <Textarea
+          className="min-h-20 text-sm"
+          onChange={(event) => setEnvironment(event.currentTarget.value)}
+          placeholder={"API_KEY=value\nBASE_URL=https://example.com"}
+          value={environment}
+        />
+      </label>
+      <div className="flex items-center gap-5">
+        <label className="flex items-center gap-2 text-sm">
+          <Switch checked={needAuth} onCheckedChange={setNeedAuth} />
+          Requires authentication
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <Switch
+            checked={autoAuthenticate}
+            onCheckedChange={setAutoAuthenticate}
+          />
+          Auto authenticate
+        </label>
+      </div>
+      <div className="flex justify-end gap-2">
+        <Button
+          disabled={saving}
+          onClick={onCancel}
+          size="sm"
+          type="button"
+          variant="ghost"
+        >
+          <X />
+          Cancel
+        </Button>
+        <Button
+          disabled={!canSave || saving}
+          onClick={() => void save()}
+          size="sm"
+          type="button"
+        >
+          <Save />
+          Save
+        </Button>
+      </div>
+    </article>
+  );
+}
+
 function SettingsRow({
   after,
   children,
@@ -445,6 +776,29 @@ function SettingsSelect({
       </NativeSelect>
     </label>
   );
+}
+
+function argsToList(value: string): string[] {
+  return value
+    .split(/\r?\n/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function environmentToList(value: string) {
+  return value
+    .split(/\r?\n/)
+    .map((line) => {
+      const separatorIndex = line.indexOf("=");
+      if (separatorIndex < 0) {
+        return { name: line.trim(), value: "" };
+      }
+      return {
+        name: line.slice(0, separatorIndex).trim(),
+        value: line.slice(separatorIndex + 1),
+      };
+    })
+    .filter((item) => item.name.length > 0);
 }
 
 function AgentEnabledSwitch({

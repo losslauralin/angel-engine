@@ -1,9 +1,13 @@
 import type { BrowserWindowConstructorOptions } from "electron";
 
-import type { DesktopThemeMode } from "../../shared/desktop-window";
+import type {
+  DesktopConfirmDeleteCustomAgentInput,
+  DesktopThemeMode,
+} from "../../shared/desktop-window";
 import { BrowserWindow, dialog, ipcMain, nativeTheme } from "electron";
 import {
   DESKTOP_CONFIRM_DELETE_ALL_CHATS_CHANNEL,
+  DESKTOP_CONFIRM_DELETE_CUSTOM_AGENT_CHANNEL,
   DESKTOP_INSTALL_UPDATE_CHANNEL,
   DESKTOP_THEME_SET_CHANNEL,
 } from "../../shared/desktop-window";
@@ -62,6 +66,33 @@ export function registerDesktopWindowAppearanceIpc() {
     return result.response === 1;
   });
 
+  ipcMain.handle(
+    DESKTOP_CONFIRM_DELETE_CUSTOM_AGENT_CHANNEL,
+    async (event, input: unknown) => {
+      const value = readConfirmDeleteCustomAgentInput(input);
+      if (!value) return false;
+
+      const options = {
+        buttons: [translate("common.cancel"), translate("common.delete")],
+        cancelId: 0,
+        defaultId: 0,
+        detail:
+          value.chatCount > 0
+            ? `This will also delete ${value.chatCount} related chat${value.chatCount === 1 ? "" : "s"}.`
+            : "This custom agent is not used by any chats.",
+        message: `Delete ${value.label}?`,
+        noLink: true,
+        type: "warning" as const,
+      };
+      const parentWindow = BrowserWindow.fromWebContents(event.sender);
+      const result = parentWindow
+        ? await dialog.showMessageBox(parentWindow, options)
+        : await dialog.showMessageBox(options);
+
+      return result.response === 1;
+    },
+  );
+
   ipcMain.handle(DESKTOP_INSTALL_UPDATE_CHANNEL, () => {
     installDownloadedUpdate();
   });
@@ -82,4 +113,22 @@ function readThemeMode(input: unknown): DesktopThemeMode | null {
 
 function isObject(value: unknown): value is { mode?: unknown } {
   return typeof value === "object" && value !== null;
+}
+
+function readConfirmDeleteCustomAgentInput(
+  input: unknown,
+): DesktopConfirmDeleteCustomAgentInput | null {
+  if (typeof input !== "object" || input === null) return null;
+  const value = input as Partial<DesktopConfirmDeleteCustomAgentInput>;
+  if (typeof value.label !== "string" || !value.label.trim()) return null;
+  if (
+    typeof value.chatCount !== "number" ||
+    !Number.isFinite(value.chatCount)
+  ) {
+    return null;
+  }
+  return {
+    chatCount: Math.max(0, Math.trunc(value.chatCount)),
+    label: value.label,
+  };
 }

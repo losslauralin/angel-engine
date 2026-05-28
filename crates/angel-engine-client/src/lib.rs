@@ -22,8 +22,8 @@ mod thread;
 pub use adapter::RuntimeAdapter;
 pub use client::{Client, ClientBuilder};
 pub use config::{
-    ClientAuthOptions, ClientIdentity, ClientOptions, ClientOptionsBuilder, ClientProtocol,
-    StartConversationRequest,
+    ClientAuthOptions, ClientEnvironmentVariable, ClientIdentity, ClientOptions,
+    ClientOptionsBuilder, ClientProtocol, StartConversationRequest,
 };
 pub use core::{
     ClientAnswer, ClientCommandResult, ClientInput, DiscoveryRequest, ElicitationResponse,

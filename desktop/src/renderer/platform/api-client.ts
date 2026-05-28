@@ -1,4 +1,8 @@
 import type {
+  CreateCustomAgentInput,
+  UpdateCustomAgentInput,
+} from "@shared/agents";
+import type {
   ChatCreateInput,
   ChatPrewarmInput,
   ChatRenameInput,
@@ -12,7 +16,18 @@ import type { CreateProjectInput } from "@shared/projects";
 import { ipc } from "@/platform/ipc";
 
 interface AgentsApiClient {
+  createCustom: (
+    input: CreateCustomAgentInput,
+  ) => ReturnType<typeof ipc.agentsCreateCustom>;
+  deleteCustom: (agentId: string) => ReturnType<typeof ipc.agentsDeleteCustom>;
+  deleteCustomImpact: (
+    agentId: string,
+  ) => ReturnType<typeof ipc.agentsCustomDeleteImpact>;
   listAvailable: () => ReturnType<typeof ipc.agentsListAvailable>;
+  listCustom: () => ReturnType<typeof ipc.agentsListCustom>;
+  updateCustom: (
+    input: UpdateCustomAgentInput,
+  ) => ReturnType<typeof ipc.agentsUpdateCustom>;
 }
 
 interface ChatApiClient {
@@ -59,7 +74,15 @@ export interface ApiClient {
 export function createApiClient(): ApiClient {
   return {
     agents: {
+      createCustom: async (input: CreateCustomAgentInput) =>
+        ipc.agentsCreateCustom(input),
+      deleteCustom: async (agentId: string) => ipc.agentsDeleteCustom(agentId),
+      deleteCustomImpact: async (agentId: string) =>
+        ipc.agentsCustomDeleteImpact(agentId),
       listAvailable: async () => ipc.agentsListAvailable(),
+      listCustom: async () => ipc.agentsListCustom(),
+      updateCustom: async (input: UpdateCustomAgentInput) =>
+        ipc.agentsUpdateCustom(input),
     },
     chats: {
       archive: async (chatId: string) => ipc.chatsArchive(chatId),

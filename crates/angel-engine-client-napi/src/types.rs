@@ -537,11 +537,18 @@ pub struct RuntimeOptionsOverrides {
     pub identity: Option<ClientIdentity>,
     pub cwd: Option<String>,
     pub additional_directories: Option<Vec<String>>,
+    pub environment: Option<Vec<ClientEnvironmentVariable>>,
     pub experimental_api: Option<bool>,
     pub process_label: Option<String>,
     pub client_name: Option<String>,
     pub client_title: Option<String>,
     pub default_reasoning_effort: Option<String>,
+}
+
+#[napi(object)]
+pub struct ClientEnvironmentVariable {
+    pub name: String,
+    pub value: String,
 }
 
 #[napi(object)]
@@ -554,6 +561,7 @@ pub struct RuntimeOptions {
     pub identity: Option<ClientIdentity>,
     pub cwd: Option<String>,
     pub additional_directories: Option<Vec<String>>,
+    pub environment: Option<Vec<ClientEnvironmentVariable>>,
     pub experimental_api: Option<bool>,
     pub process_label: Option<String>,
     #[napi(ts_type = "`${AgentRuntime}`")]

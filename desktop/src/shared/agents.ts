@@ -1,6 +1,7 @@
 import { type as arkType } from "arktype";
 
 export type AgentRuntime =
+  | CustomAgentRuntime
   | "codex"
   | "kimi"
   | "opencode"
@@ -10,6 +11,43 @@ export type AgentRuntime =
   | "cursor"
   | "cline"
   | "claude";
+
+export type BuiltinAgentRuntime = Exclude<AgentRuntime, CustomAgentRuntime>;
+export type CustomAgentRuntime = `custom:${string}`;
+
+export interface CustomAgentEnvironmentVariable {
+  name: string;
+  value: string;
+}
+
+export interface CustomAgent {
+  args: string[];
+  autoAuthenticate: boolean;
+  command: string;
+  createdAt: string;
+  environment: CustomAgentEnvironmentVariable[];
+  id: CustomAgentRuntime;
+  label: string;
+  needAuth: boolean;
+  updatedAt: string;
+}
+
+export interface CreateCustomAgentInput {
+  args?: string[];
+  autoAuthenticate?: boolean;
+  command: string;
+  environment?: CustomAgentEnvironmentVariable[];
+  label: string;
+  needAuth?: boolean;
+}
+
+export interface UpdateCustomAgentInput extends Partial<CreateCustomAgentInput> {
+  id: CustomAgentRuntime;
+}
+
+export interface DeleteCustomAgentImpact {
+  chatCount: number;
+}
 
 export interface AgentOption {
   description: string;
@@ -85,14 +123,30 @@ export const AGENT_OPTIONS: AgentOption[] = [
   },
 ];
 
-const agentRuntime = arkType(
+const builtinAgentRuntime = arkType(
   "'codex' | 'kimi' | 'opencode' | 'qoder' | 'copilot' | 'gemini' | 'cursor' | 'cline' | 'claude'",
 );
 
 const DEFAULT_AGENT_RUNTIME: AgentRuntime = "codex";
 
 export function isAgentRuntime(value: unknown): value is AgentRuntime {
-  return !(agentRuntime(value) instanceof arkType.errors);
+  return isBuiltinAgentRuntime(value) || isCustomAgentRuntime(value);
+}
+
+export function isBuiltinAgentRuntime(
+  value: unknown,
+): value is BuiltinAgentRuntime {
+  return !(builtinAgentRuntime(value) instanceof arkType.errors);
+}
+
+export function isCustomAgentRuntime(
+  value: unknown,
+): value is CustomAgentRuntime {
+  return (
+    typeof value === "string" &&
+    value.startsWith("custom:") &&
+    value.length > "custom:".length
+  );
 }
 
 export function getEnabledAgentOptions(
@@ -156,13 +210,11 @@ export function sanitizeAgentSettings(value: unknown): AgentSettings {
     value !== null && typeof value === "object"
       ? (value as Partial<{ defaultRuntime: unknown }>)
       : {};
-  const parsedLastRuntime = agentRuntime(settings.lastRuntime);
-  const parsedLegacyDefault = agentRuntime(legacySettings.defaultRuntime);
+  const parsedLastRuntime = parseAgentRuntime(settings.lastRuntime);
+  const parsedLegacyDefault = parseAgentRuntime(legacySettings.defaultRuntime);
   const fallbackRuntime =
-    parsedLastRuntime instanceof arkType.errors
-      ? parsedLegacyDefault instanceof arkType.errors
-        ? DEFAULT_AGENT_RUNTIME
-        : parsedLegacyDefault
+    parsedLastRuntime === undefined
+      ? (parsedLegacyDefault ?? DEFAULT_AGENT_RUNTIME)
       : parsedLastRuntime;
   const enabledRuntimes = sanitizeEnabledRuntimes(
     settings.enabledRuntimes,
@@ -211,15 +263,18 @@ function sanitizeEnabledRuntimes(
 
   const parsedRuntimes = new Set<AgentRuntime>();
   for (const item of value) {
-    const parsed = agentRuntime(item);
-    if (!(parsed instanceof arkType.errors)) {
+    const parsed = parseAgentRuntime(item);
+    if (parsed !== undefined) {
       parsedRuntimes.add(parsed);
     }
   }
 
-  const enabledRuntimes = AGENT_OPTIONS.flatMap((agent) =>
-    parsedRuntimes.has(agent.id) ? [agent.id] : [],
-  );
+  const enabledRuntimes = [
+    ...AGENT_OPTIONS.flatMap((agent) =>
+      parsedRuntimes.has(agent.id) ? [agent.id] : [],
+    ),
+    ...Array.from(parsedRuntimes).filter(isCustomAgentRuntime),
+  ];
 
   return enabledRuntimes.length > 0 ? enabledRuntimes : [fallbackRuntime];
 }
@@ -233,10 +288,11 @@ function sanitizeRuntimePreferences(
   >;
   const preferences: AgentSettings["runtimePreferences"] = {};
 
-  for (const agent of AGENT_OPTIONS) {
-    const preference = sanitizeAgentRuntimePreference(input[agent.id]);
+  for (const [runtime, rawPreference] of Object.entries(input)) {
+    if (!isAgentRuntime(runtime)) continue;
+    const preference = sanitizeAgentRuntimePreference(rawPreference);
     if (preference.explicit === true) {
-      preferences[agent.id] = preference;
+      preferences[runtime] = preference;
     }
   }
 
@@ -245,4 +301,10 @@ function sanitizeRuntimePreferences(
 
 function sanitizePreferenceValue(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+function parseAgentRuntime(value: unknown): AgentRuntime | undefined {
+  if (isCustomAgentRuntime(value)) return value;
+  const parsed = builtinAgentRuntime(value);
+  return parsed instanceof arkType.errors ? undefined : parsed;
 }

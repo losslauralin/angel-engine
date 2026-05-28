@@ -34,12 +34,16 @@ impl AngelClient {
     pub fn spawn(options: ClientOptions) -> ClientResult<Self> {
         let runtime_model_catalog_command =
             (options.protocol == ClientProtocol::CodexAppServer).then(|| options.command.clone());
-        let mut child = spawn_command(&options.command)
+        let mut command = spawn_command(&options.command);
+        command
             .args(&options.args)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()?;
+            .stderr(Stdio::piped());
+        for variable in &options.environment {
+            command.env(&variable.name, &variable.value);
+        }
+        let mut child = command.spawn()?;
 
         let child_stdin = child
             .stdin
@@ -412,10 +416,16 @@ impl AngelClient {
 }
 
 fn spawn_command(program: &str) -> Command {
-    let cmd = Command::new(program);
+    #[cfg(not(windows))]
+    {
+        Command::new(program)
+    }
     #[cfg(windows)]
-    cmd.creation_flags(CREATE_NO_WINDOW);
-    cmd
+    {
+        let mut cmd = Command::new(program);
+        cmd.creation_flags(CREATE_NO_WINDOW);
+        cmd
+    }
 }
 
 fn load_runtime_model_catalog(command: &str) -> Option<serde_json::Value> {

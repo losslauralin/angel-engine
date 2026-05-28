@@ -14,12 +14,19 @@ export interface DesktopThemeSetInput {
   mode: DesktopThemeMode;
 }
 
+export interface DesktopConfirmDeleteCustomAgentInput {
+  chatCount: number;
+  label: string;
+}
+
 export interface DesktopUpdateDownloadedEvent {
   releaseName: string;
   releaseNotes?: string;
 }
 
 export const DESKTOP_ACTIVE_CHAT_SET_CHANNEL = "desktop-window:active-chat:set";
+export const DESKTOP_CONFIRM_DELETE_CUSTOM_AGENT_CHANNEL =
+  "desktop-window:confirm-delete-custom-agent";
 export const DESKTOP_CONFIRM_DELETE_ALL_CHATS_CHANNEL =
   "desktop-window:confirm-delete-all-chats";
 export const DESKTOP_COMMAND_CHANNEL = "desktop-window:command";

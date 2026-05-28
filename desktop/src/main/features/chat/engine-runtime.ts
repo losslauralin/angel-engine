@@ -10,7 +10,6 @@ import type {
   TurnRunEvent,
   TurnRunResult,
 } from "@angel-engine/client-napi";
-import { ClaudeCodeSession } from "@angel-engine/claude-client";
 import type { ProjectedTurnEvent } from "@angel-engine/js-client/projection";
 import type {
   Chat,
@@ -30,9 +29,10 @@ import type {
   ChatSetPermissionModeResult,
   ChatSetRuntimeInput,
 } from "../../../shared/chat";
-
 import type { ChatRuntime } from "./runtime";
+
 import path from "node:path";
+import { ClaudeCodeSession } from "@angel-engine/claude-client";
 
 import {
   ActionPhase,
@@ -53,8 +53,10 @@ import {
   throwIfAborted,
 } from "@angel-engine/js-client/utils/errors";
 import { app } from "electron";
+import { isCustomAgentRuntime } from "../../../shared/agents";
 import { normalizeChatAttachmentsInput } from "../../../shared/chat";
 import { isTextLikeMimeType } from "../../../shared/mime";
+import { getCustomAgent } from "../agents/repository";
 import { getProject } from "../projects/repository";
 import {
   createChat,
@@ -313,6 +315,27 @@ async function createChatSession(
 ): Promise<DesktopChatSession> {
   if (runtime === "claude") {
     return new ClaudeCodeSession();
+  }
+
+  if (isCustomAgentRuntime(runtime)) {
+    const agent = getCustomAgent(runtime);
+    if (!agent) {
+      throw new Error(`Custom agent not found: ${runtime}`);
+    }
+    return new DesktopAngelSession(
+      createRuntimeOptions("custom", {
+        args: agent.args,
+        auth: {
+          autoAuthenticate: agent.autoAuthenticate,
+          needAuth: agent.needAuth,
+        },
+        command: agent.command,
+        environment: agent.environment,
+        clientName: "angel-engine",
+        clientTitle: "Angel Engine",
+        processLabel: agent.label,
+      }),
+    );
   }
 
   return new DesktopAngelSession(

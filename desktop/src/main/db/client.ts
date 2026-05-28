@@ -6,10 +6,11 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import { app } from "electron";
 
-import { chats, projects } from "./schema";
+import { chats, customAgents, projects } from "./schema";
 
 export type AppDatabase = BetterSQLite3Database<{
   chats: typeof chats;
+  customAgents: typeof customAgents;
   projects: typeof projects;
 }>;
 
@@ -26,7 +27,7 @@ export function getDatabase() {
   sqlite.pragma("journal_mode = WAL");
   sqlite.pragma("foreign_keys = ON");
 
-  db = drizzle(sqlite, { schema: { chats, projects } });
+  db = drizzle(sqlite, { schema: { chats, customAgents, projects } });
   migrate(db, { migrationsFolder: resolveMigrationsFolder() });
   return db;
 }

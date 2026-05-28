@@ -1,4 +1,11 @@
-import type { AgentOption, AgentRuntime, AgentSettings } from "@shared/agents";
+import type {
+  AgentOption,
+  AgentRuntime,
+  AgentSettings,
+  CreateCustomAgentInput,
+  CustomAgent,
+  UpdateCustomAgentInput,
+} from "@shared/agents";
 
 import type { SupportedLanguage } from "@shared/i18n/resources";
 import type { DesktopThemeMode } from "@/platform/theme";
@@ -23,6 +30,12 @@ interface SettingsBroadcastMessage {
 interface SettingsState {
   agentSettings: AgentSettings;
   availableAgentOptions: AgentOption[];
+  customAgents: CustomAgent[];
+  createCustomAgent: (input: CreateCustomAgentInput) => Promise<CustomAgent>;
+  deleteCustomAgent: (runtime: AgentRuntime) => Promise<void>;
+  deleteCustomAgentImpact: (
+    runtime: AgentRuntime,
+  ) => Promise<{ chatCount: number }>;
   language: SupportedLanguage;
   refreshAvailableAgentOptions: () => Promise<void>;
   setAgentEnabled: (runtime: AgentRuntime, enabled: boolean) => void;
@@ -32,6 +45,7 @@ interface SettingsState {
   setLanguage: (language: SupportedLanguage) => void;
   setThemeMode: (themeMode: DesktopThemeMode) => void;
   themeMode: DesktopThemeMode;
+  updateCustomAgent: (input: UpdateCustomAgentInput) => Promise<CustomAgent>;
 }
 
 const broadcastChannel = createBroadcastChannel();
@@ -39,10 +53,53 @@ const broadcastChannel = createBroadcastChannel();
 export const useSettingsStore = create<SettingsState>()((set, get) => ({
   agentSettings: readAgentSettings(),
   availableAgentOptions: [],
+  customAgents: [],
+  createCustomAgent: async (input) => {
+    const agent = await getApiClient().agents.createCustom(input);
+    updateSettingsState(set, get, (current) => ({
+      agentSettings: sanitizeAgentSettings({
+        ...current.agentSettings,
+        enabledRuntimes: [...current.agentSettings.enabledRuntimes, agent.id],
+        lastRuntime: agent.id,
+      }),
+      customAgents: [...current.customAgents, agent],
+    }));
+    await get().refreshAvailableAgentOptions();
+    return agent;
+  },
+  deleteCustomAgent: async (runtime) => {
+    await getApiClient().agents.deleteCustom(runtime);
+    updateSettingsState(set, get, (current) => ({
+      agentSettings: sanitizeAgentSettings({
+        ...current.agentSettings,
+        enabledRuntimes: current.agentSettings.enabledRuntimes.filter(
+          (item) => item !== runtime,
+        ),
+        lastRuntime:
+          current.agentSettings.lastRuntime === runtime
+            ? undefined
+            : current.agentSettings.lastRuntime,
+        runtimePreferences: Object.fromEntries(
+          Object.entries(current.agentSettings.runtimePreferences).filter(
+            ([key]) => key !== runtime,
+          ),
+        ),
+      }),
+      customAgents: current.customAgents.filter(
+        (agent) => agent.id !== runtime,
+      ),
+    }));
+    await get().refreshAvailableAgentOptions();
+  },
+  deleteCustomAgentImpact: async (runtime) =>
+    getApiClient().agents.deleteCustomImpact(runtime),
   language: readLanguage(),
   refreshAvailableAgentOptions: async () => {
-    const availableAgentOptions = await getApiClient().agents.listAvailable();
-    set({ availableAgentOptions });
+    const [availableAgentOptions, customAgents] = await Promise.all([
+      getApiClient().agents.listAvailable(),
+      getApiClient().agents.listCustom(),
+    ]);
+    set({ availableAgentOptions, customAgents });
   },
   setAgentEnabled: (runtime, enabled) => {
     updateSettingsState(set, get, (current) => {
@@ -80,6 +137,16 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     );
   },
   themeMode: readDesktopThemeMode(),
+  updateCustomAgent: async (input) => {
+    const agent = await getApiClient().agents.updateCustom(input);
+    set((current) => ({
+      customAgents: current.customAgents.map((item) =>
+        item.id === agent.id ? agent : item,
+      ),
+    }));
+    await get().refreshAvailableAgentOptions();
+    return agent;
+  },
 }));
 
 void useSettingsStore

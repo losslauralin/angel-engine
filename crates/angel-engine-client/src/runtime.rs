@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
 use strum::Display;
 
-use crate::{ClientAuthOptions, ClientIdentity, ClientOptions, ClientProtocol};
+use crate::{
+    ClientAuthOptions, ClientEnvironmentVariable, ClientIdentity, ClientOptions, ClientProtocol,
+};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, Display)]
 #[serde(rename_all = "lowercase")]
@@ -16,6 +18,7 @@ pub enum AgentRuntime {
     Gemini,
     Cursor,
     Cline,
+    Custom,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -33,6 +36,8 @@ pub struct RuntimeOptionsOverrides {
     pub cwd: Option<String>,
     #[serde(default)]
     pub additional_directories: Option<Vec<String>>,
+    #[serde(default)]
+    pub environment: Option<Vec<ClientEnvironmentVariable>>,
     #[serde(default)]
     pub experimental_api: Option<bool>,
     #[serde(default)]
@@ -77,6 +82,7 @@ pub fn create_runtime_options(
         Some("gemini") => AgentRuntime::Gemini,
         Some("cursor") => AgentRuntime::Cursor,
         Some("cline") => AgentRuntime::Cline,
+        Some("custom") => AgentRuntime::Custom,
         _ => AgentRuntime::Codex,
     };
     let command_override = overrides
@@ -199,6 +205,17 @@ pub fn create_runtime_options(
             protocol: ClientProtocol::Cline,
             ..ClientOptions::builder().build()
         },
+        AgentRuntime::Custom => ClientOptions {
+            args: overrides.args.clone().unwrap_or_default(),
+            auth: overrides.auth.unwrap_or(ClientAuthOptions {
+                auto_authenticate: false,
+                need_auth: false,
+            }),
+            command: command_override.unwrap_or_else(|| "agent".to_string()),
+            identity,
+            protocol: ClientProtocol::Acp,
+            ..ClientOptions::builder().build()
+        },
         AgentRuntime::Codex => ClientOptions {
             args: overrides
                 .args
@@ -216,6 +233,9 @@ pub fn create_runtime_options(
     }
     if let Some(additional_directories) = overrides.additional_directories {
         client.additional_directories = additional_directories;
+    }
+    if let Some(environment) = overrides.environment {
+        client.environment = environment;
     }
     if let Some(experimental_api) = overrides.experimental_api {
         client.experimental_api = experimental_api;
@@ -310,6 +330,7 @@ mod tests {
         assert_eq!(AgentRuntime::Copilot.to_string(), "copilot");
         assert_eq!(AgentRuntime::Qoder.to_string(), "qoder");
         assert_eq!(AgentRuntime::Cursor.to_string(), "cursor");
+        assert_eq!(AgentRuntime::Custom.to_string(), "custom");
     }
 
     #[test]
@@ -328,5 +349,39 @@ mod tests {
 
             assert_eq!(options.runtime, AgentRuntime::Codex);
         }
+    }
+
+    #[test]
+    fn custom_runtime_uses_standard_acp_adapter_with_explicit_options() {
+        let options = create_runtime_options(
+            Some("custom"),
+            RuntimeOptionsOverrides {
+                command: Some("my-agent".to_string()),
+                args: Some(vec!["serve-acp".to_string()]),
+                auth: Some(ClientAuthOptions {
+                    auto_authenticate: true,
+                    need_auth: true,
+                }),
+                environment: Some(vec![ClientEnvironmentVariable {
+                    name: "API_KEY".to_string(),
+                    value: "secret".to_string(),
+                }]),
+                ..RuntimeOptionsOverrides::default()
+            },
+        );
+
+        assert_eq!(options.runtime, AgentRuntime::Custom);
+        assert_eq!(options.client.protocol, ClientProtocol::Acp);
+        assert_eq!(options.client.command, "my-agent");
+        assert_eq!(options.client.args, vec!["serve-acp"]);
+        assert_eq!(
+            options.client.environment,
+            vec![ClientEnvironmentVariable {
+                name: "API_KEY".to_string(),
+                value: "secret".to_string(),
+            }]
+        );
+        assert!(options.client.auth.need_auth);
+        assert!(options.client.auth.auto_authenticate);
     }
 }

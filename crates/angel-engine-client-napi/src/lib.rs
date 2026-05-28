@@ -1400,6 +1400,7 @@ pub fn normalize_runtime_name(runtime: Option<String>) -> String {
                 Some("gemini") => EngineAgentRuntime::Gemini,
                 Some("cursor") => EngineAgentRuntime::Cursor,
                 Some("cline") => EngineAgentRuntime::Cline,
+                Some("custom") => EngineAgentRuntime::Custom,
                 _ => EngineAgentRuntime::Codex,
             };
             runtime.to_string()

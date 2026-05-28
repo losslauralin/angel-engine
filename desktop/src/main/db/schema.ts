@@ -5,6 +5,20 @@ export const projects = sqliteTable("projects", {
   path: text("path").notNull().unique(),
 });
 
+export const customAgents = sqliteTable("custom_agents", {
+  id: text("id").primaryKey(),
+  label: text("label").notNull(),
+  command: text("command").notNull(),
+  args: text("args").notNull(),
+  environment: text("environment").notNull(),
+  needAuth: integer("need_auth", { mode: "boolean" }).notNull().default(false),
+  autoAuthenticate: integer("auto_authenticate", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
 export const chats = sqliteTable(
   "chats",
   {
@@ -28,5 +42,7 @@ export const chats = sqliteTable(
 
 export type ProjectRow = typeof projects.$inferSelect;
 export type NewProjectRow = typeof projects.$inferInsert;
+export type CustomAgentRow = typeof customAgents.$inferSelect;
+export type NewCustomAgentRow = typeof customAgents.$inferInsert;
 export type ChatRow = typeof chats.$inferSelect;
 export type NewChatRow = typeof chats.$inferInsert;
