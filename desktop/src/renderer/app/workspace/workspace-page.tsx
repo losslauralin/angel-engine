@@ -166,6 +166,7 @@ function WorkspacePageContent({
   const availableAgentOptions = useSettingsStore(
     (state) => state.availableAgentOptions,
   );
+  const setAgentEnabled = useSettingsStore((state) => state.setAgentEnabled);
   const enabledAgentOptions = useMemo(
     () => getEnabledAgentOptions(agentSettings, availableAgentOptions),
     [agentSettings, availableAgentOptions],
@@ -328,24 +329,6 @@ function WorkspacePageContent({
       ),
     [chats, projectIds],
   );
-  const setAgentEnabled = useCallback(
-    (runtime: AgentRuntime, enabled: boolean) => {
-      updateAgentSettings((current) => {
-        const enabledRuntimes = new Set(current.enabledRuntimes);
-        if (enabled) {
-          enabledRuntimes.add(runtime);
-        } else {
-          enabledRuntimes.delete(runtime);
-        }
-        return {
-          ...current,
-          enabledRuntimes: [...enabledRuntimes],
-        };
-      });
-    },
-    [updateAgentSettings],
-  );
-
   const setChatInCache = useCallback(
     (
       chat: Chat,

@@ -23,6 +23,7 @@ const senderId = globalThis.crypto?.randomUUID?.() ?? String(Date.now());
 interface SettingsBroadcastMessage {
   agentSettings: AgentSettings;
   language: SupportedLanguage;
+  refreshAgentOptions?: boolean;
   senderId: string;
   themeMode: DesktopThemeMode;
 }
@@ -56,39 +57,49 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   customAgents: [],
   createCustomAgent: async (input) => {
     const agent = await getApiClient().agents.createCustom(input);
-    updateSettingsState(set, get, (current) => ({
-      agentSettings: sanitizeAgentSettings({
-        ...current.agentSettings,
-        enabledRuntimes: [...current.agentSettings.enabledRuntimes, agent.id],
-        lastRuntime: agent.id,
+    updateSettingsState(
+      set,
+      get,
+      (current) => ({
+        agentSettings: sanitizeAgentSettings({
+          ...current.agentSettings,
+          enabledRuntimes: [...current.agentSettings.enabledRuntimes, agent.id],
+          lastRuntime: agent.id,
+        }),
+        customAgents: [...current.customAgents, agent],
       }),
-      customAgents: [...current.customAgents, agent],
-    }));
+      { refreshAgentOptions: true },
+    );
     await get().refreshAvailableAgentOptions();
     return agent;
   },
   deleteCustomAgent: async (runtime) => {
     await getApiClient().agents.deleteCustom(runtime);
-    updateSettingsState(set, get, (current) => ({
-      agentSettings: sanitizeAgentSettings({
-        ...current.agentSettings,
-        enabledRuntimes: current.agentSettings.enabledRuntimes.filter(
-          (item) => item !== runtime,
-        ),
-        lastRuntime:
-          current.agentSettings.lastRuntime === runtime
-            ? undefined
-            : current.agentSettings.lastRuntime,
-        runtimePreferences: Object.fromEntries(
-          Object.entries(current.agentSettings.runtimePreferences).filter(
-            ([key]) => key !== runtime,
+    updateSettingsState(
+      set,
+      get,
+      (current) => ({
+        agentSettings: sanitizeAgentSettings({
+          ...current.agentSettings,
+          enabledRuntimes: current.agentSettings.enabledRuntimes.filter(
+            (item) => item !== runtime,
           ),
+          lastRuntime:
+            current.agentSettings.lastRuntime === runtime
+              ? undefined
+              : current.agentSettings.lastRuntime,
+          runtimePreferences: Object.fromEntries(
+            Object.entries(current.agentSettings.runtimePreferences).filter(
+              ([key]) => key !== runtime,
+            ),
+          ),
+        }),
+        customAgents: current.customAgents.filter(
+          (agent) => agent.id !== runtime,
         ),
       }),
-      customAgents: current.customAgents.filter(
-        (agent) => agent.id !== runtime,
-      ),
-    }));
+      { refreshAgentOptions: true },
+    );
     await get().refreshAvailableAgentOptions();
   },
   deleteCustomAgentImpact: async (runtime) =>
@@ -102,21 +113,29 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     set({ availableAgentOptions, customAgents });
   },
   setAgentEnabled: (runtime, enabled) => {
-    updateSettingsState(set, get, (current) => {
-      const enabledRuntimes = new Set(current.agentSettings.enabledRuntimes);
-      if (enabled) {
-        enabledRuntimes.add(runtime);
-      } else {
-        enabledRuntimes.delete(runtime);
-      }
+    updateSettingsState(
+      set,
+      get,
+      (current) => {
+        const enabledRuntimes = new Set(current.agentSettings.enabledRuntimes);
+        if (enabled) {
+          enabledRuntimes.add(runtime);
+        } else {
+          enabledRuntimes.delete(runtime);
+        }
 
-      return {
-        agentSettings: sanitizeAgentSettings({
-          ...current.agentSettings,
-          enabledRuntimes: [...enabledRuntimes],
-        }),
-      };
-    });
+        return {
+          agentSettings: sanitizeAgentSettings({
+            ...current.agentSettings,
+            enabledRuntimes: [...enabledRuntimes],
+          }),
+        };
+      },
+      { refreshAgentOptions: true },
+    );
+    void get()
+      .refreshAvailableAgentOptions()
+      .catch(() => {});
   },
   setAgentSettings: (updater) => {
     updateSettingsState(set, get, (current) => ({
@@ -139,11 +158,16 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   themeMode: readDesktopThemeMode(),
   updateCustomAgent: async (input) => {
     const agent = await getApiClient().agents.updateCustom(input);
-    set((current) => ({
-      customAgents: current.customAgents.map((item) =>
-        item.id === agent.id ? agent : item,
-      ),
-    }));
+    updateSettingsState(
+      set,
+      get,
+      (current) => ({
+        customAgents: current.customAgents.map((item) =>
+          item.id === agent.id ? agent : item,
+        ),
+      }),
+      { refreshAgentOptions: true },
+    );
     await get().refreshAvailableAgentOptions();
     return agent;
   },
@@ -164,7 +188,17 @@ broadcastChannel?.addEventListener("message", (event) => {
     language: message.language,
     themeMode: message.themeMode,
   });
+  if (message.refreshAgentOptions === true) {
+    void useSettingsStore
+      .getState()
+      .refreshAvailableAgentOptions()
+      .catch(() => {});
+  }
 });
+
+interface UpdateSettingsStateOptions {
+  refreshAgentOptions?: boolean;
+}
 
 function updateSettingsState(
   set: (
@@ -174,23 +208,26 @@ function updateSettingsState(
   ) => void,
   get: () => SettingsState,
   updater: (state: SettingsState) => Partial<SettingsState>,
+  options: UpdateSettingsStateOptions = {},
 ) {
   const nextPartial = updater(get());
   if (Object.keys(nextPartial).length === 0) return;
 
   set(nextPartial);
   const nextState = get();
-  const message = settingsBroadcastMessage(nextState);
+  const message = settingsBroadcastMessage(nextState, options);
   applySettingsSideEffects(message);
   broadcastChannel?.postMessage(message);
 }
 
 function settingsBroadcastMessage(
   state: Pick<SettingsState, "agentSettings" | "language" | "themeMode">,
+  options: UpdateSettingsStateOptions = {},
 ): SettingsBroadcastMessage {
   return {
     agentSettings: state.agentSettings,
     language: state.language,
+    refreshAgentOptions: options.refreshAgentOptions,
     senderId,
     themeMode: state.themeMode,
   };
@@ -210,6 +247,7 @@ function readBroadcastMessage(value: unknown): SettingsBroadcastMessage | null {
   return {
     agentSettings: sanitizeAgentSettings(input.agentSettings),
     language: normalizeSupportedLanguage(input.language),
+    refreshAgentOptions: input.refreshAgentOptions === true,
     senderId: input.senderId,
     themeMode: sanitizeThemeMode(input.themeMode),
   };

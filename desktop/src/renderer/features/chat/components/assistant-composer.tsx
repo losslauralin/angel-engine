@@ -129,7 +129,6 @@ export function AssistantComposer({
   const { t } = useTranslation();
   const aui = useAui();
   const environment = useChatEnvironment();
-  const chatOptions = useChatOptions();
   const canCancel = useAuiState((state) => state.composer.canCancel);
   const isInputDisabled = useAuiState((state) => state.thread.isDisabled);
   const isRunning = useAuiState((state) => state.thread.isRunning);
@@ -177,10 +176,6 @@ export function AssistantComposer({
       if (!hasMessage) {
         return;
       }
-      if (chatOptions.configLoading) {
-        return;
-      }
-
       const composer = aui.composer();
 
       composer.setText(text);
@@ -203,7 +198,7 @@ export function AssistantComposer({
         throw error;
       }
     },
-    [aui, chatOptions.configLoading, mentionedFiles, t],
+    [aui, mentionedFiles, t],
   );
 
   const handleAttachmentError = useCallback(
@@ -289,18 +284,13 @@ export function AssistantComposer({
         return;
       }
 
-      if (
-        event.key === "Enter" &&
-        !event.shiftKey &&
-        (isRunning || chatOptions.configLoading)
-      ) {
+      if (event.key === "Enter" && !event.shiftKey && isRunning) {
         event.preventDefault();
       }
     },
     [
       aui,
       canCancel,
-      chatOptions.configLoading,
       fileMentionOpen,
       fileResults,
       fileSearchLoading,
@@ -708,7 +698,7 @@ function AssistantComposerFooter({ draftText }: { draftText: string }) {
             focus-visible:ring-0!
             active:translate-y-px
           "
-          disabled={isRunning || isEmpty || chatOptions.configLoading}
+          disabled={isRunning || isEmpty}
           size="sm"
           type="submit"
         >
@@ -881,6 +871,7 @@ function ComposerModelMenu({
   const [modelQuery, setModelQuery] = useState("");
   const providerOptions = options.runtimeOptions;
   const providerLabel =
+    providerOptions.find((agent) => agent.value === options.runtime)?.label ??
     AGENT_OPTIONS.find((agent) => agent.id === options.runtime)?.label ??
     options.runtime;
   const modelLabel = optionLabel(options.modelOptions, options.model);

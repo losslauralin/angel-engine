@@ -1,4 +1,3 @@
-import type { AgentRuntime } from "@shared/agents";
 import type { Chat } from "@shared/chat";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -21,31 +20,14 @@ export function SettingsWindowPage() {
   const queryClient = useQueryClient();
   const { t } = useTranslation();
   const toast = useToast();
-  const [agentSettings, updateAgentSettings] = useAgentSettings();
+  const [agentSettings] = useAgentSettings();
   const availableAgentOptions = useSettingsStore(
     (state) => state.availableAgentOptions,
   );
+  const setAgentEnabled = useSettingsStore((state) => state.setAgentEnabled);
   const deleteAllChatsMutation = useMutation({
     ...deleteAllChatsMutationOptions({ api, queryClient }),
   });
-
-  const setAgentEnabled = useCallback(
-    (runtime: AgentRuntime, enabled: boolean) => {
-      updateAgentSettings((current) => {
-        const enabledRuntimes = new Set(current.enabledRuntimes);
-        if (enabled) {
-          enabledRuntimes.add(runtime);
-        } else {
-          enabledRuntimes.delete(runtime);
-        }
-        return {
-          ...current,
-          enabledRuntimes: [...enabledRuntimes],
-        };
-      });
-    },
-    [updateAgentSettings],
-  );
 
   const deleteAllChats = useCallback(async () => {
     try {
