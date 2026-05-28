@@ -42,9 +42,7 @@ export function useProjectFileMentionSearch({
     ...projectFileSearchQueryOptions({
       api,
       enabled:
-        enabled &&
-        projectRoot !== undefined &&
-        debouncedSearchQuery !== null,
+        enabled && projectRoot !== undefined && debouncedSearchQuery !== null,
       query: debouncedSearchQuery ?? "",
       root: projectRoot ?? "",
     }),
