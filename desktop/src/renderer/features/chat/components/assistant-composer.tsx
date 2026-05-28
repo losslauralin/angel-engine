@@ -29,7 +29,7 @@ import {
   RiCloseLine as X,
 } from "@remixicon/react";
 import { AGENT_OPTIONS } from "@shared/agents";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   PromptInput,
@@ -70,7 +70,10 @@ import {
 import { useChatEnvironment } from "@/features/chat/runtime/chat-environment-context";
 import { useChatOptions } from "@/features/chat/runtime/chat-options-context";
 import { findPlanModeToggleTarget } from "@/features/chat/runtime/mode-options";
-import { useApi } from "@/platform/use-api";
+import {
+  mentionQueryFromDraft,
+  useProjectFileMentionSearch,
+} from "@/features/chat/state/use-project-file-mention-search";
 import { cn } from "@/platform/utils";
 
 type ComposerMentionedFile = ProjectFileSearchResult & {
@@ -125,7 +128,6 @@ export function AssistantComposer({
 }) {
   const { t } = useTranslation();
   const aui = useAui();
-  const api = useApi();
   const environment = useChatEnvironment();
   const chatOptions = useChatOptions();
   const canCancel = useAuiState((state) => state.composer.canCancel);
@@ -136,8 +138,6 @@ export function AssistantComposer({
   const [mentionedFiles, setMentionedFiles] = useState<ComposerMentionedFile[]>(
     [],
   );
-  const [fileResults, setFileResults] = useState<ProjectFileSearchResult[]>([]);
-  const [fileSearchLoading, setFileSearchLoading] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const projectToolsEnabled =
     environment.isProjectChat && environment.projectPath !== undefined;
@@ -145,6 +145,11 @@ export function AssistantComposer({
     ? mentionQueryFromDraft(draftText)
     : null;
   const fileMentionOpen = mentionQuery !== null;
+  const { fileResults, fileSearchLoading } = useProjectFileMentionSearch({
+    enabled: projectToolsEnabled,
+    mentionQuery,
+    projectRoot: environment.projectPath,
+  });
   const slashQuery = projectToolsEnabled
     ? slashQueryFromDraft(draftText)
     : null;
@@ -200,57 +205,6 @@ export function AssistantComposer({
     },
     [aui, chatOptions.configLoading, mentionedFiles, t],
   );
-
-  useEffect(() => {
-    if (
-      !projectToolsEnabled ||
-      mentionQuery === null ||
-      environment.projectPath === undefined
-    ) {
-      setFileResults([]);
-      setFileSearchLoading(false);
-      return;
-    }
-
-    const projectRoot = environment.projectPath;
-    let cancelled = false;
-    setFileSearchLoading(true);
-    const timeout = window.setTimeout(() => {
-      void api.projects
-        .searchFiles({
-          limit: 12,
-          query: mentionQuery,
-          root: projectRoot,
-        })
-        .then((results) => {
-          if (!cancelled) setFileResults(results);
-        })
-        .catch((error: unknown) => {
-          if (cancelled) return;
-          setFileResults([]);
-          toast({
-            description: getErrorMessage(error),
-            title: t("composer.toasts.couldNotSearchFiles"),
-            variant: "destructive",
-          });
-        })
-        .finally(() => {
-          if (!cancelled) setFileSearchLoading(false);
-        });
-    }, 120);
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timeout);
-    };
-  }, [
-    api,
-    environment.projectPath,
-    mentionQuery,
-    projectToolsEnabled,
-    t,
-    toast,
-  ]);
 
   const handleAttachmentError = useCallback(
     (error: AttachmentInputError) => {
@@ -1566,11 +1520,6 @@ function filterSlashCommands(commands: ChatAvailableCommand[], query: string) {
       return !normalized || name.includes(normalized);
     })
     .slice(0, 8);
-}
-
-function mentionQueryFromDraft(text: string) {
-  const match = /(?:^|\s)@([^\s@]*)$/.exec(text);
-  return match ? match[1] : null;
 }
 
 function replaceMentionQuery(text: string, relativePath: string) {
