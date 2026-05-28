@@ -115,6 +115,7 @@ const config: ForgeConfig = {
   packagerConfig: {
     appBundleId: "com.akrc.angel-engine",
     asar: true,
+    extraResource: [path.join(projectRoot, "build", "app-update.yml")],
     icon: appIconPath,
     osxSign:
       process.platform === "darwin"
