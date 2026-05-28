@@ -1,6 +1,30 @@
-- 如果更改 Drizzle 的 schema，记得生成 migration。
-- 桌面端所有选择控件都必须使用 `@/components/ui/native-select`
-  的 `NativeSelect` / `NativeSelectOption` / `NativeSelectOptGroup` 实现；
-  不要新增或导入 `@/components/ui/select` / Radix `Select`。
-- `desktop` 内的包管理器使用 `yarn`，不要改用 `npm`、`pnpm` 或 `bun`。
-- 需要对桌面端页面或交互做浏览器验证时，使用 agent-browser。
+# Desktop Contributor Notes
+
+Scope: `desktop/`. Follow root `AGENTS.md` for engine and cross-layer invariants.
+
+## Overview
+
+Electron app with explicit main/preload/renderer/shared boundaries, consuming normalized state from `@angel-engine/client-napi`.
+
+## Where To Look
+
+| Task                      | Location       | Notes                                       |
+| ------------------------- | -------------- | ------------------------------------------- |
+| IPC/session orchestration | `src/main`     | Main process owns lifecycle and persistence |
+| Preload bridge            | `src/preload`  | Keep bridge minimal and typed               |
+| UI + renderer runtime     | `src/renderer` | UI state only; avoid protocol inference     |
+| Shared desktop types      | `src/shared`   | Main/renderer contract surface              |
+
+## Conventions
+
+- If Drizzle schema changes, generate and commit migrations.
+- All select controls must use `@/components/ui/native-select` primitives (`NativeSelect`, `NativeSelectOption`, `NativeSelectOptGroup`).
+- Keep main/preload/renderer separation; do not bypass restricted import boundaries.
+- Use workspace `pnpm` commands for desktop tasks.
+- Use agent-browser for UI/browser validation when requested.
+
+## Anti-Patterns
+
+- Importing `@/components/ui/select` or Radix `Select` into desktop code.
+- Storing restored chat messages in desktop DB (metadata only).
+- Re-implementing provider/model/mode semantics in renderer when snapshot already carries them.
