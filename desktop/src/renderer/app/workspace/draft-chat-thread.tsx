@@ -2,6 +2,7 @@ import type { AgentRuntime } from "@shared/agents";
 import type { Chat, ChatRuntimeConfig } from "@shared/chat";
 import type { Project } from "@shared/projects";
 import type {
+  ChatRunOrigin,
   ChatMessagesUpdateHandler,
   ChatUpdateHandler,
 } from "./workspace-thread-types";
@@ -16,7 +17,7 @@ interface DraftChatThreadProps {
   chatOptions: ChatOptionsContextValue;
   model?: string;
   mode?: string;
-  onChatCreated: (chat: Chat) => void;
+  onChatCreated: ChatUpdateHandler;
   onChatMessagesUpdated: ChatMessagesUpdateHandler;
   onChatUpdated: ChatUpdateHandler;
   onCreateProject: () => Project | undefined | Promise<Project | undefined>;
@@ -28,6 +29,7 @@ interface DraftChatThreadProps {
   projectPath?: string;
   projects: Project[];
   reasoningEffort?: string;
+  runOrigin: ChatRunOrigin;
   runtime: AgentRuntime;
   runtimeConfig?: ChatRuntimeConfig;
   slotKey: string;
@@ -49,10 +51,18 @@ export function DraftChatThread({
   projectPath,
   projects,
   reasoningEffort,
+  runOrigin,
   runtime,
   runtimeConfig,
   slotKey,
 }: DraftChatThreadProps) {
+  const handleChatCreated = (chat: Chat) => {
+    onChatCreated(chat, undefined, undefined, runOrigin);
+  };
+  const handleChatUpdated: ChatUpdateHandler = (chat, messages, config) => {
+    onChatUpdated(chat, messages, config, runOrigin);
+  };
+
   return (
     <ChatOptionsProvider value={chatOptions}>
       <AppRuntimeProvider
@@ -60,9 +70,9 @@ export function DraftChatThread({
         historyRevision={0}
         model={model}
         mode={mode}
-        onChatCreated={onChatCreated}
+        onChatCreated={handleChatCreated}
         onChatMessagesUpdated={onChatMessagesUpdated}
-        onChatUpdated={onChatUpdated}
+        onChatUpdated={handleChatUpdated}
         prewarmId={prewarmId}
         projectId={projectId ?? null}
         projectPath={projectPath}

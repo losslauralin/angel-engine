@@ -11,11 +11,13 @@ export function chatRuntimeProviderKey(
 
 export function workspaceRuntimePageKey({
   chatRuntime,
+  draftSessionId,
   draftProjectId,
   selectedChatId,
   settingsActive,
 }: {
   chatRuntime?: AgentRuntime;
+  draftSessionId?: number;
   draftProjectId?: string;
   selectedChatId?: string;
   settingsActive: boolean;
@@ -28,9 +30,11 @@ export function workspaceRuntimePageKey({
     return "settings";
   }
 
-  return draftProjectId !== undefined
-    ? `draft:project:${draftProjectId}`
-    : "draft";
+  const key =
+    draftProjectId !== undefined ? `draft:project:${draftProjectId}` : "draft";
+  return draftSessionId !== undefined && draftSessionId > 0
+    ? `${key}:session:${draftSessionId}`
+    : key;
 }
 
 export function draftRuntimeKeyFromProjectId(projectId: string | undefined) {

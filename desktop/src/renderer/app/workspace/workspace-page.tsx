@@ -6,7 +6,10 @@ import type {
   ChatRuntimeConfig,
 } from "@shared/chat";
 import type { Project } from "@shared/projects";
-import type { DraftAgentConfig } from "@/app/workspace/workspace-thread-types";
+import type {
+  ChatRunOrigin,
+  DraftAgentConfig,
+} from "@/app/workspace/workspace-thread-types";
 
 import {
   getEnabledAgentOptions,
@@ -16,7 +19,14 @@ import {
   sanitizeAgentRuntimePreference,
 } from "@shared/agents";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { Redirect, useLocation } from "wouter";
 import { ChatRestoreLoading } from "@/app/workspace/chat-restore-loading";
@@ -77,6 +87,7 @@ import {
   cancelChatRun,
   setActiveChatRunId,
   useChatAttentionSummary,
+  useChatRunConfig,
   useChatRunIsRunning,
 } from "@/features/chat/state/chat-run-store";
 import {
@@ -185,6 +196,10 @@ function WorkspacePageContent({
   const [draftAgentConfigs, setDraftAgentConfigs] = useState<
     Partial<Record<string, DraftAgentConfig>>
   >({});
+  const [draftSessionIds, setDraftSessionIds] = useState<
+    Partial<Record<string, number>>
+  >({});
+  const draftSessionCounterRef = useRef(0);
   const [renameChatId, setRenameChatId] = useState<string | null>(null);
   const isDraftPage = !selectedChatId && !settingsActive;
 
@@ -195,6 +210,7 @@ function WorkspacePageContent({
     ...chatListQueryOptions({ api }),
   });
   const selectedChatIsRunning = useChatRunIsRunning(selectedChatId);
+  const selectedChatRuntimeConfig = useChatRunConfig(selectedChatId);
 
   const projects = projectsQuery.data ?? EMPTY_PROJECTS;
   const chats = chatsQuery.data ?? EMPTY_CHATS;
@@ -228,15 +244,18 @@ function WorkspacePageContent({
     t,
   });
   const chatRuntime = selectedChat?.runtime as AgentRuntime | undefined;
-  const runtimePageKey = workspaceRuntimePageKey({
-    chatRuntime,
-    draftProjectId: routeDraftProjectId,
-    selectedChatId,
-    settingsActive,
-  });
   const draftRuntimeKey = isDraftPage
     ? draftRuntimeKeyFromProjectId(routeDraftProjectId)
     : undefined;
+  const runtimePageKey = workspaceRuntimePageKey({
+    chatRuntime,
+    draftProjectId: routeDraftProjectId,
+    draftSessionId: draftRuntimeKey
+      ? draftSessionIds[draftRuntimeKey]
+      : undefined,
+    selectedChatId,
+    settingsActive,
+  });
   const draftRuntime = draftRuntimeKey
     ? resolveEnabledAgentRuntime(
         agentSettings,
@@ -390,53 +409,62 @@ function WorkspacePageContent({
       chat: Chat,
       messages?: ChatHistoryMessage[],
       config?: ChatRuntimeConfig,
+      origin?: ChatRunOrigin,
     ) => {
-      if (isDraftPage && isAgentRuntime(chat.runtime)) {
-        const runtime = chat.runtime;
-        const carriedConfig = draftAgentConfigFromExplicitOverrides({
+      const runRuntime =
+        origin?.runtime ??
+        (isAgentRuntime(chat.runtime) ? chat.runtime : undefined);
+      const runConfig =
+        origin?.config ??
+        draftAgentConfigFromExplicitOverrides({
           mode: modeOverride,
           model: modelOverride,
           permissionMode: permissionModeOverride,
           reasoningEffort: reasoningEffortOverride,
         });
+
+      if (origin?.isDraft && runRuntime) {
         setDraftAgentConfigs((current) =>
           carryDraftAgentConfigToChat(current, {
-            config: carriedConfig,
-            runtime,
+            config: runConfig,
+            runtime: runRuntime,
             targetChatId: chat.id,
           }),
         );
       }
 
-      if (messages && isAgentRuntime(chat.runtime)) {
-        const runtime = chat.runtime;
-        const preference = agentRuntimePreferenceFromExplicitOverrides({
-          mode: modeOverride,
-          model: modelOverride,
-          permissionMode: permissionModeOverride,
-          reasoningEffort: reasoningEffortOverride,
-        });
-        updateAgentSettings((current) =>
-          rememberAgentRuntimePreference(current, runtime, preference),
+      if (messages && runRuntime) {
+        const preference = agentRuntimePreferenceFromExplicitOverrides(
+          runConfig ?? {},
         );
-        setDraftRuntimes({});
-        setDraftAgentConfigs((current) => clearDraftAgentConfigs(current));
+        updateAgentSettings((current) =>
+          rememberAgentRuntimePreference(current, runRuntime, preference),
+        );
+        if (origin?.isDraft) {
+          setDraftAgentConfigs((current) =>
+            clearDraftAgentConfig(current, origin.runtimePageKey, runRuntime),
+          );
+        }
       }
 
       setChatInCache(chat, messages, config);
-      if (isDraftPage && currentHashRoutePath() === currentRoutePath) {
+      if (
+        origin?.isDraft &&
+        origin.runtimePageKey === runtimePageKey &&
+        currentHashRoutePath() === currentRoutePath
+      ) {
         navigateToChat(chat);
       }
     },
     [
       currentRoutePath,
-      isDraftPage,
       navigateToChat,
       modeOverride,
       modelOverride,
       setChatInCache,
       permissionModeOverride,
       reasoningEffortOverride,
+      runtimePageKey,
       updateAgentSettings,
     ],
   );
@@ -620,6 +648,63 @@ function WorkspacePageContent({
     [location, navigate],
   );
 
+  const startNewDraftSession = useCallback(
+    (projectId?: string) => {
+      const nextDraftRuntimeKey = draftRuntimeKeyFromProjectId(projectId);
+      const nextSessionId = ++draftSessionCounterRef.current;
+      const nextRuntimePageKey = workspaceRuntimePageKey({
+        draftProjectId: projectId,
+        draftSessionId: nextSessionId,
+        settingsActive: false,
+      });
+      const inheritedConfig = draftAgentConfigFromExplicitOverrides({
+        mode: optionalString(
+          modeOverride ??
+            selectedChatRuntimeConfig?.agentState?.currentMode ??
+            selectedChatRuntimeConfig?.currentMode,
+        ),
+        model: optionalString(
+          modelOverride ?? selectedChatRuntimeConfig?.currentModel,
+        ),
+        permissionMode: optionalString(
+          permissionModeOverride ??
+            selectedChatRuntimeConfig?.agentState?.currentPermissionMode ??
+            selectedChatRuntimeConfig?.currentPermissionMode,
+        ),
+        reasoningEffort: optionalString(
+          reasoningEffortOverride ??
+            selectedChatRuntimeConfig?.currentReasoningEffort,
+        ),
+      });
+
+      setDraftRuntimes((current) => ({
+        ...current,
+        [nextDraftRuntimeKey]: activeRuntime,
+      }));
+      setDraftSessionIds((current) => ({
+        ...current,
+        [nextDraftRuntimeKey]: nextSessionId,
+      }));
+      if (inheritedConfig) {
+        setDraftAgentConfigs((current) => ({
+          ...current,
+          [draftAgentConfigKey(nextRuntimePageKey, activeRuntime)]:
+            inheritedConfig,
+        }));
+      }
+      navigateToDraft(projectId);
+    },
+    [
+      activeRuntime,
+      modeOverride,
+      modelOverride,
+      navigateToDraft,
+      permissionModeOverride,
+      reasoningEffortOverride,
+      selectedChatRuntimeConfig,
+    ],
+  );
+
   const archiveChat = useCallback(
     async (chat: Chat) => {
       try {
@@ -643,14 +728,14 @@ function WorkspacePageContent({
 
   const createChatForProject = useCallback(
     (project: Project) => {
-      navigateToDraft(project.id);
+      startNewDraftSession(project.id);
     },
-    [navigateToDraft],
+    [startNewDraftSession],
   );
 
   const createChatForSelection = useCallback(() => {
-    navigateToDraft();
-  }, [navigateToDraft]);
+    startNewDraftSession();
+  }, [startNewDraftSession]);
 
   const selectDraftProject = useCallback(
     (projectId: string | null) => {
@@ -811,6 +896,17 @@ function WorkspacePageContent({
                     projectPath={draftProject.path}
                     projects={projects}
                     reasoningEffort={reasoningEffortOverride}
+                    runOrigin={{
+                      config: draftAgentConfigFromExplicitOverrides({
+                        mode: modeOverride,
+                        model: modelOverride,
+                        permissionMode: permissionModeOverride,
+                        reasoningEffort: reasoningEffortOverride,
+                      }),
+                      isDraft: true,
+                      runtime: activeRuntime,
+                      runtimePageKey,
+                    }}
                     runtime={activeRuntime}
                     runtimeConfig={runtimeConfig}
                     slotKey={runtimePageKey}
@@ -917,19 +1013,20 @@ function draftAgentConfigFromExplicitOverrides(
   return Object.keys(config).length > 0 ? config : undefined;
 }
 
-function clearDraftAgentConfigs(
+function optionalString(value: string | null | undefined) {
+  return value ?? undefined;
+}
+
+function clearDraftAgentConfig(
   configs: Partial<Record<string, DraftAgentConfig>>,
+  runtimePageKey: string,
+  runtime: AgentRuntime,
 ): Partial<Record<string, DraftAgentConfig>> {
-  const next: Partial<Record<string, DraftAgentConfig>> = {};
-  let changed = false;
+  const keyToClear = draftAgentConfigKey(runtimePageKey, runtime);
+  if (configs[keyToClear] === undefined) return configs;
 
-  for (const [key, value] of Object.entries(configs)) {
-    if (key === "draft" || key.startsWith("draft:")) {
-      changed = true;
-      continue;
-    }
-    next[key] = value;
-  }
+  const next = { ...configs };
+  delete next[keyToClear];
 
-  return changed ? next : configs;
+  return next;
 }

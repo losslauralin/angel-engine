@@ -1,3 +1,4 @@
+import type { AgentRuntime } from "@shared/agents";
 import type { Chat, ChatHistoryMessage, ChatRuntimeConfig } from "@shared/chat";
 
 export const EMPTY_MESSAGES: ChatHistoryMessage[] = [];
@@ -9,10 +10,18 @@ export interface DraftAgentConfig {
   reasoningEffort?: string;
 }
 
+export interface ChatRunOrigin {
+  config?: DraftAgentConfig;
+  isDraft: boolean;
+  runtime?: AgentRuntime;
+  runtimePageKey: string;
+}
+
 export type ChatUpdateHandler = (
   chat: Chat,
   messages?: ChatHistoryMessage[],
   config?: ChatRuntimeConfig,
+  origin?: ChatRunOrigin,
 ) => void;
 
 export type ChatMessagesUpdateHandler = (

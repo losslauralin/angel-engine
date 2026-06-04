@@ -109,6 +109,10 @@ const assistantTextContainerClassName = [
 ].join(" ");
 
 const messageColumnClassName = "mx-auto w-full max-w-[860px]";
+const userMessageColumnClassName =
+  "flex min-w-0 max-w-[min(100%,38rem)] flex-col items-end gap-1.5";
+const userMessageBubbleClassName =
+  "min-w-0 max-w-full rounded-lg rounded-br-md bg-primary/95 px-3.5 py-2.5 text-[14px]/6 text-primary-foreground";
 
 const inspectorCardClassName = nativePanelClass;
 const toolCallCardClassName = nativePanelClass;
@@ -137,7 +141,7 @@ export function UserMessage() {
     <MessagePrimitive.Root
       className={cn(messageColumnClassName, "group flex justify-end")}
     >
-      <div className="flex max-w-[74%] flex-col items-end gap-1.5">
+      <div className={userMessageColumnClassName}>
         <MessagePrimitive.Attachments>
           {({ attachment }) => (
             <MessageAttachment attachment={attachment} key={attachment.id} />
@@ -145,12 +149,7 @@ export function UserMessage() {
         </MessagePrimitive.Attachments>
         <UserMessageAttachmentParts />
         {hasBubbleContent ? (
-          <div
-            className="
-              rounded-lg rounded-br-md bg-primary/95 px-3.5 py-2.5 text-[14px]/6
-              text-primary-foreground
-            "
-          >
+          <div className={userMessageBubbleClassName}>
             <UserMessageParts />
           </div>
         ) : null}
@@ -203,7 +202,7 @@ export function UserEditComposer() {
     >
       <ComposerPrimitive.Root
         className="
-          w-full max-w-[74%] rounded-lg border border-foreground/8
+          w-full max-w-[min(100%,38rem)] rounded-lg border border-foreground/8
           bg-background/90 p-2.5 shadow-[0_8px_22px_-22px_rgba(0,0,0,0.55)]
           backdrop-blur-xl
           dark:border-white/8
@@ -503,7 +502,11 @@ function PlainTextMessagePart(
         </span>
       );
     }
-    return <div className="whitespace-pre-wrap">{part.text}</div>;
+    return (
+      <div className="whitespace-pre-wrap [overflow-wrap:anywhere] [word-break:normal]">
+        {part.text}
+      </div>
+    );
   }
 
   return null;
@@ -1207,6 +1210,16 @@ function ElicitationQuestionCard({
     elicitation.kind === "userInput" || Boolean(questions?.length);
   const isPermissionRequest =
     isPermissionElicitation(elicitation) && !hasInputQuestions;
+
+  const elicitationCardClassName = cn(
+    inspectorCardClassName,
+    "my-2",
+    isPermissionRequest && "shadow-none",
+  );
+  const elicitationControlRowClass = isPermissionRequest
+    ? "min-w-0 rounded-md transition-colors"
+    : nativeControlRowClass;
+
   const backingActionKind = useAuiState((state) => {
     const actionId = elicitation.actionId ?? elicitation.id;
     return state.message.parts
@@ -1247,13 +1260,13 @@ function ElicitationQuestionCard({
 
   return (
     <Collapsible
-      className={cn(inspectorCardClassName, "my-2")}
+      className={elicitationCardClassName}
       onOpenChange={setManualOpen}
       open={open}
     >
       <CollapsibleTrigger
         className={cn(
-          nativeControlRowClass,
+          elicitationControlRowClass,
           `
             flex min-h-10 w-full items-center gap-2 rounded-none px-3 py-2
             text-left
