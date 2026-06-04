@@ -2,7 +2,6 @@ import type { Chat } from "@shared/chat";
 import type { Project } from "@shared/projects";
 import type { ReactElement } from "react";
 import {
-  RiArrowRightSLine as ChevronRight,
   RiFolderLine as Folder,
   RiFolderAddLine as FolderPlus,
   RiLoader4Line as Loader2,
@@ -10,8 +9,9 @@ import {
 } from "@remixicon/react";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { useState } from "react";
+import { useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { useWorkspaceUiStore } from "@/app/workspace/workspace-ui-store";
 import { Button } from "@/components/ui/button";
 import {
   SidebarGroup,
@@ -29,12 +29,6 @@ import { ChatSidebarItem } from "@/features/chat/components/chat-sidebar-item";
 
 type MaybeAsync = void | Promise<void>;
 
-interface ProjectExpansionState {
-  expandedProjectIds: Set<string>;
-  projectIds: Set<string>;
-  selectedProjectId?: string;
-}
-
 interface ProjectSidebarSectionProps {
   isLoading: boolean;
   onArchiveChat: (chat: Chat) => MaybeAsync;
@@ -46,7 +40,6 @@ interface ProjectSidebarSectionProps {
   projectChatsByProjectId: Map<string, Chat[]>;
   projects: Project[];
   selectedChatId?: string;
-  selectedProjectId?: string;
 }
 
 export function ProjectSidebarSection({
@@ -60,61 +53,34 @@ export function ProjectSidebarSection({
   projectChatsByProjectId,
   projects,
   selectedChatId,
-  selectedProjectId,
 }: ProjectSidebarSectionProps): ReactElement {
   const { t } = useTranslation();
-  const currentProjectIds = new Set(projects.map((project) => project.id));
-  const [projectExpansion, setProjectExpansion] =
-    useState<ProjectExpansionState>(() => ({
-      expandedProjectIds: new Set(projects.map((project) => project.id)),
-      projectIds: currentProjectIds,
-      selectedProjectId,
-    }));
+  const projectIds = useMemo(
+    () => projects.map((project) => project.id),
+    [projects],
+  );
+  const expandedProjectIds = useWorkspaceUiStore(
+    (state) => state.expandedProjectIds,
+  );
+  const syncSidebarProjects = useWorkspaceUiStore(
+    (state) => state.syncSidebarProjects,
+  );
+  const toggleProjectExpanded = useWorkspaceUiStore(
+    (state) => state.toggleSidebarProject,
+  );
 
-  let expandedProjectIds = projectExpansion.expandedProjectIds;
-  if (
-    !setsEqual(projectExpansion.projectIds, currentProjectIds) ||
-    projectExpansion.selectedProjectId !== selectedProjectId
-  ) {
-    const nextExpandedProjectIds = new Set(expandedProjectIds);
-    for (const projectId of nextExpandedProjectIds) {
-      if (!currentProjectIds.has(projectId)) {
-        nextExpandedProjectIds.delete(projectId);
-      }
+  useEffect(() => {
+    if (!isLoading) {
+      syncSidebarProjects(projectIds);
     }
-    for (const projectId of currentProjectIds) {
-      if (!projectExpansion.projectIds.has(projectId)) {
-        nextExpandedProjectIds.add(projectId);
-      }
-    }
-    if (selectedProjectId) {
-      nextExpandedProjectIds.add(selectedProjectId);
-    }
-    setProjectExpansion({
-      expandedProjectIds: nextExpandedProjectIds,
-      projectIds: currentProjectIds,
-      selectedProjectId,
-    });
-    expandedProjectIds = nextExpandedProjectIds;
-  }
-
-  function toggleProjectExpanded(projectId: string): void {
-    setProjectExpansion((current) => {
-      const expandedProjectIds = new Set(current.expandedProjectIds);
-      if (expandedProjectIds.has(projectId)) {
-        expandedProjectIds.delete(projectId);
-      } else {
-        expandedProjectIds.add(projectId);
-      }
-      return { ...current, expandedProjectIds };
-    });
-  }
+  }, [isLoading, projectIds, syncSidebarProjects]);
 
   return (
     <SidebarGroup className="py-1">
       <SidebarSectionHeader label={t("sidebar.projects")}>
         <Button
           asChild
+          className="size-[1.5rem] [&_svg:not([class*='size-'])]:size-[0.75rem]"
           size="icon-xs"
           title={t("sidebar.addProject")}
           variant="ghost"
@@ -154,14 +120,15 @@ export function ProjectSidebarSection({
 
             {projects.map((project) => {
               const projectDisplayName = getProjectDisplayName(project.path);
-              const projectChats = projectChatsByProjectId.get(project.id);
+              const projectChats =
+                projectChatsByProjectId.get(project.id) ?? [];
               const isExpanded = expandedProjectIds.has(project.id);
-              const hasChats = Boolean(projectChats?.length);
+              const hasChats = projectChats.length > 0;
 
               return (
                 <AnimatedSidebarMenuItem key={project.id}>
                   <WorkspaceSidebarMenuButton
-                    aria-expanded={hasChats ? isExpanded : undefined}
+                    aria-expanded={isExpanded}
                     onClick={() => {
                       toggleProjectExpanded(project.id);
                     }}
@@ -181,15 +148,6 @@ export function ProjectSidebarSection({
                     >
                       {projectDisplayName}
                     </span>
-                    {hasChats ? (
-                      <motion.span
-                        animate={{ rotate: isExpanded ? 90 : 0 }}
-                        className="ml-1 shrink-0 opacity-80"
-                        transition={sidebarMotion}
-                      >
-                        <ChevronRight className="size-4" />
-                      </motion.span>
-                    ) : null}
                   </WorkspaceSidebarMenuButton>
                   <WorkspaceSidebarMenuAction
                     aria-label={t("sidebar.newChatInProject", {
@@ -209,7 +167,7 @@ export function ProjectSidebarSection({
                   </WorkspaceSidebarMenuAction>
 
                   <AnimatePresence initial={false}>
-                    {hasChats && isExpanded ? (
+                    {isExpanded ? (
                       <motion.div
                         animate={{ height: "auto", opacity: 1 }}
                         className="overflow-hidden py-0.5"
@@ -220,23 +178,36 @@ export function ProjectSidebarSection({
                         layout="position"
                       >
                         <SidebarMenu>
-                          {projectChats?.map((chat) => (
-                            <AnimatedSidebarMenuItem key={chat.id}>
-                              <ChatSidebarItem
-                                chatId={chat.id}
-                                isActive={chat.id === selectedChatId}
-                                onArchiveChat={async () => onArchiveChat(chat)}
-                                onOpenChat={() => void onOpenChat(chat)}
-                                onShowContextMenu={async () =>
-                                  onShowChatContextMenu(chat)
-                                }
-                                title={displayChatTitle(chat.title, t)}
-                                tooltip={
-                                  chat.cwd ?? displayChatTitle(chat.title, t)
-                                }
-                              />
+                          {hasChats ? (
+                            projectChats.map((chat) => (
+                              <AnimatedSidebarMenuItem key={chat.id}>
+                                <ChatSidebarItem
+                                  chatId={chat.id}
+                                  isActive={chat.id === selectedChatId}
+                                  onArchiveChat={async () =>
+                                    onArchiveChat(chat)
+                                  }
+                                  onOpenChat={() => void onOpenChat(chat)}
+                                  onShowContextMenu={async () =>
+                                    onShowChatContextMenu(chat)
+                                  }
+                                  title={displayChatTitle(chat.title, t)}
+                                  tooltip={
+                                    chat.cwd ?? displayChatTitle(chat.title, t)
+                                  }
+                                />
+                              </AnimatedSidebarMenuItem>
+                            ))
+                          ) : (
+                            <AnimatedSidebarMenuItem key="no-chats">
+                              <WorkspaceSidebarMenuButton
+                                className="text-sidebar-foreground/45"
+                                disabled
+                              >
+                                <span>{t("sidebar.noChats")}</span>
+                              </WorkspaceSidebarMenuButton>
                             </AnimatedSidebarMenuItem>
-                          ))}
+                          )}
                         </SidebarMenu>
                       </motion.div>
                     ) : null}
@@ -249,18 +220,6 @@ export function ProjectSidebarSection({
       </SidebarGroupContent>
     </SidebarGroup>
   );
-}
-
-function setsEqual(left: Set<string>, right: Set<string>): boolean {
-  if (left.size !== right.size) {
-    return false;
-  }
-  for (const value of left) {
-    if (!right.has(value)) {
-      return false;
-    }
-  }
-  return true;
 }
 
 function getProjectDisplayName(projectPath: string): string {

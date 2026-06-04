@@ -2,12 +2,11 @@ import type { Chat } from "@shared/chat";
 import type { Project } from "@shared/projects";
 import type { ComponentType, ReactElement } from "react";
 
-import type { SidebarViewMode } from "@/app/workspace/workspace-ui-store";
+import type { WorkspaceMode } from "@/app/workspace/workspace-ui-store";
 import {
   RiFolderLine as Folder,
-  RiListUnordered as List,
+  RiMessage2Line as MessageSquare,
   RiChatNewLine as MessageSquarePlus,
-  RiLayoutRowLine as Rows3,
   RiSettings3Line as Settings,
 } from "@remixicon/react";
 import { useTranslation } from "react-i18next";
@@ -23,23 +22,19 @@ import {
   AnimatedSidebarMenuItem,
   WorkspaceSidebarMenuButton,
 } from "@/components/workspace-sidebar-primitives";
-import { ChatSidebarSection } from "@/features/chat/components/chat-sidebar-section";
 import { SimpleChatSidebarSection } from "@/features/chat/components/simple-chat-sidebar-section";
 import { ProjectSidebarSection } from "@/features/projects/components/project-sidebar-section";
 import { cn } from "@/platform/utils";
 
 type MaybeAsync = void | Promise<void>;
 
-const SIDEBAR_VIEW_MODES: Array<{
+const WORKSPACE_MODES: Array<{
   icon: ComponentType<{ className?: string }>;
-  value: SidebarViewMode;
+  labelKey: "sidebar.modeChat" | "sidebar.modeWork";
+  value: WorkspaceMode;
 }> = [
-  { icon: List, value: "simple" },
-  { icon: Folder, value: "project" },
-  {
-    icon: Rows3,
-    value: "mixed",
-  },
+  { icon: MessageSquare, labelKey: "sidebar.modeChat", value: "chat" },
+  { icon: Folder, labelKey: "sidebar.modeWork", value: "work" },
 ];
 
 interface WorkspaceSidebarProps {
@@ -60,7 +55,6 @@ interface WorkspaceSidebarProps {
   selectedChatId?: string;
   selectedProjectId?: string;
   settingsActive: boolean;
-  standaloneChats: Chat[];
 }
 
 export function WorkspaceSidebar({
@@ -81,16 +75,22 @@ export function WorkspaceSidebar({
   selectedChatId,
   selectedProjectId,
   settingsActive,
-  standaloneChats,
 }: WorkspaceSidebarProps): ReactElement {
   const { t } = useTranslation();
-  const viewMode = useWorkspaceUiStore((state) => state.sidebarViewMode);
-  const setViewMode = useWorkspaceUiStore((state) => state.setSidebarViewMode);
+  const workspaceMode = useWorkspaceUiStore((state) => state.workspaceMode);
+  const setWorkspaceMode = useWorkspaceUiStore(
+    (state) => state.setWorkspaceMode,
+  );
   const createChatFromNewButton = async () => {
-    if (viewMode === "project") {
-      const firstProject = projects[0];
-      if (firstProject) {
-        return onCreateProjectChat(firstProject);
+    if (workspaceMode === "work") {
+      const selectedProject = projects.find(
+        (project) => project.id === selectedProjectId,
+      );
+      if (selectedProject !== undefined) {
+        return onCreateProjectChat(selectedProject);
+      }
+      if (projects.length > 0) {
+        return onCreateProjectChat(projects[0]);
       }
     }
 
@@ -100,9 +100,12 @@ export function WorkspaceSidebar({
   return (
     <Sidebar className="select-none" variant="inset">
       <SidebarHeader className="p-2" data-electron-drag>
-        {isMacOS ? <div aria-hidden className="h-8 shrink-0" /> : null}
+        {isMacOS ? <div aria-hidden className="h-[2rem] shrink-0" /> : null}
 
-        <SidebarViewModeControl onValueChange={setViewMode} value={viewMode} />
+        <WorkspaceModeControl
+          onValueChange={setWorkspaceMode}
+          value={workspaceMode}
+        />
       </SidebarHeader>
 
       <SidebarContent className="gap-0 pb-1">
@@ -125,7 +128,7 @@ export function WorkspaceSidebar({
           "
         />
 
-        {viewMode === "simple" ? (
+        {workspaceMode === "chat" ? (
           <SimpleChatSidebarSection
             chats={chats}
             isLoading={isChatsLoading}
@@ -136,7 +139,7 @@ export function WorkspaceSidebar({
           />
         ) : null}
 
-        {viewMode === "project" ? (
+        {workspaceMode === "work" ? (
           <ProjectSidebarSection
             isLoading={isProjectsLoading}
             onArchiveChat={onArchiveChat}
@@ -148,35 +151,7 @@ export function WorkspaceSidebar({
             projectChatsByProjectId={projectChatsByProjectId}
             projects={projects}
             selectedChatId={selectedChatId}
-            selectedProjectId={selectedProjectId}
           />
-        ) : null}
-
-        {viewMode === "mixed" ? (
-          <>
-            <ProjectSidebarSection
-              isLoading={isProjectsLoading}
-              onArchiveChat={onArchiveChat}
-              onCreateProject={onCreateProject}
-              onCreateProjectChat={onCreateProjectChat}
-              onOpenChat={onOpenChat}
-              onShowChatContextMenu={onShowChatContextMenu}
-              onShowProjectContextMenu={onShowProjectContextMenu}
-              projectChatsByProjectId={projectChatsByProjectId}
-              projects={projects}
-              selectedChatId={selectedChatId}
-              selectedProjectId={selectedProjectId}
-            />
-
-            <ChatSidebarSection
-              isLoading={isChatsLoading}
-              onArchiveChat={onArchiveChat}
-              onOpenChat={onOpenChat}
-              onShowChatContextMenu={onShowChatContextMenu}
-              selectedChatId={selectedChatId}
-              standaloneChats={standaloneChats}
-            />
-          </>
         ) : null}
       </SidebarContent>
 
@@ -197,13 +172,15 @@ export function WorkspaceSidebar({
   );
 }
 
-function SidebarViewModeControl({
+function WorkspaceModeControl({
   onValueChange,
   value,
 }: {
-  onValueChange: (value: SidebarViewMode) => void;
-  value: SidebarViewMode;
+  onValueChange: (value: WorkspaceMode) => void;
+  value: WorkspaceMode;
 }): ReactElement {
+  const { t } = useTranslation();
+
   return (
     <div
       className="
@@ -212,31 +189,37 @@ function SidebarViewModeControl({
       "
     >
       <div
-        aria-label="view"
+        aria-label={t("sidebar.modeSwitcher")}
         className="
-          grid grid-cols-3 gap-0.5 rounded-md bg-black/[0.055] p-0.5
+          grid grid-cols-2 gap-0.5 rounded-md bg-black/5.5 p-0.5
           shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]
-          dark:bg-white/[0.055]
+          dark:bg-white/5.5
           dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.07)]
         "
         role="group"
       >
-        {SIDEBAR_VIEW_MODES.map((option) => {
+        {WORKSPACE_MODES.map((option) => {
           const Icon = option.icon;
           const isActive = value === option.value;
+          const label = t(option.labelKey);
 
           return (
             <button
-              aria-label={option.value}
+              aria-label={label}
               aria-pressed={isActive}
               className={cn(
                 `
-                  flex h-7 min-w-0 items-center justify-center rounded-[5px]
-                  px-2 text-sidebar-foreground/58 outline-hidden
+                  flex h-[1.75rem] min-w-0 items-center justify-center gap-1.5
+                  rounded-[5px] px-2
+                  [font-size:var(--workspace-sidebar-label-text-size)]
+                  font-medium
+                  text-sidebar-foreground/58 outline-hidden
                   transition-[background-color,color,box-shadow]
                   hover:bg-white/25 hover:text-sidebar-foreground/78
-                  focus-visible:bg-white/40 focus-visible:text-sidebar-foreground
-                  dark:hover:bg-white/[0.055] dark:focus-visible:bg-white/[0.1]
+                  focus-visible:bg-white/40
+                  focus-visible:text-sidebar-foreground
+                  dark:hover:bg-white/5.5
+                  dark:focus-visible:bg-white/10
                 `,
                 isActive
                   ? `
@@ -249,9 +232,11 @@ function SidebarViewModeControl({
               )}
               key={option.value}
               onClick={() => onValueChange(option.value)}
+              title={label}
               type="button"
             >
-              <Icon className="size-4 shrink-0" />
+              <Icon className="size-[1rem] shrink-0" />
+              <span className="min-w-0 truncate">{label}</span>
             </button>
           );
         })}

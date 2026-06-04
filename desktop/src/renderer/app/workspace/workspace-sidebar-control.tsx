@@ -40,7 +40,7 @@ export function WorkspaceSidebarControlTarget(): ReactElement {
 
   return (
     <div
-      className="fixed z-50 flex size-8 items-center"
+      className="fixed z-50 flex size-[2rem] items-center"
       ref={setTarget}
       style={{ left: isMacOS ? 80 : 20, top: 8 }}
     />
@@ -55,7 +55,12 @@ export function WorkspaceSidebarControl(): ReactElement | null {
   }
 
   return createPortal(
-    <SidebarTrigger className="text-muted-foreground" />,
+    <SidebarTrigger
+      className="
+        size-[2rem]! text-muted-foreground
+        [&_svg]:size-[1rem]!
+      "
+    />,
     target,
   );
 }

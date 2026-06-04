@@ -62,6 +62,7 @@ import {
   WorkspaceSidebarControl,
   WorkspaceSidebarControlPortalProvider,
 } from "@/app/workspace/workspace-sidebar-control";
+import { useWorkspaceUiStore } from "@/app/workspace/workspace-ui-store";
 import {
   SidebarInset,
   SidebarProvider,
@@ -178,6 +179,14 @@ function WorkspacePageContent({
     (state) => state.availableAgentOptions,
   );
   const setAgentEnabled = useSettingsStore((state) => state.setAgentEnabled);
+  const sidebarOpen = useWorkspaceUiStore((state) => state.sidebarOpen);
+  const sidebarOpenMobile = useWorkspaceUiStore(
+    (state) => state.sidebarOpenMobile,
+  );
+  const setSidebarOpen = useWorkspaceUiStore((state) => state.setSidebarOpen);
+  const setSidebarOpenMobile = useWorkspaceUiStore(
+    (state) => state.setSidebarOpenMobile,
+  );
   const enabledAgentOptions = useMemo(
     () => getEnabledAgentOptions(agentSettings, availableAgentOptions),
     [agentSettings, availableAgentOptions],
@@ -321,10 +330,6 @@ function WorkspacePageContent({
     [navigate],
   );
 
-  const projectIds = useMemo(
-    () => new Set(projects.map((project) => project.id)),
-    [projects],
-  );
   const projectChatsByProjectId = useMemo(() => {
     const groupedChats = new Map<string, Chat[]>();
 
@@ -341,13 +346,6 @@ function WorkspacePageContent({
 
     return groupedChats;
   }, [chats]);
-  const standaloneChats = useMemo(
-    () =>
-      chats.filter(
-        (chat) => !chat.projectId || !projectIds.has(chat.projectId),
-      ),
-    [chats, projectIds],
-  );
   const setChatInCache = useCallback(
     (
       chat: Chat,
@@ -792,7 +790,12 @@ function WorkspacePageContent({
   }
 
   return (
-    <SidebarProvider>
+    <SidebarProvider
+      onOpenChange={setSidebarOpen}
+      onOpenMobileChange={setSidebarOpenMobile}
+      open={sidebarOpen}
+      openMobile={sidebarOpenMobile}
+    >
       <WorkspaceSidebarControlPortalProvider>
         <WorkspaceSidebar
           chats={chats}
@@ -812,7 +815,6 @@ function WorkspacePageContent({
           selectedChatId={selectedChatId}
           selectedProjectId={selectedProjectId}
           settingsActive={settingsActive}
-          standaloneChats={standaloneChats}
         />
         <WorkspaceSidebarControl />
         <WorkspaceNativeCommandHandler

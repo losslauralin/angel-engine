@@ -13,6 +13,7 @@ import {
   UserEditComposer,
   UserMessage,
 } from "@/features/chat/components/messages";
+import { workspaceContentColumnClass } from "@/features/chat/components/thread-styles";
 
 export function AssistantThread({
   composerFloatingAccessory,
@@ -84,7 +85,7 @@ export function AssistantThread({
           sm:px-7
         "
       >
-        <div className="mx-auto w-full max-w-[860px]">
+        <div className={workspaceContentColumnClass}>
           <AssistantComposer floatingAccessory={composerFloatingAccessory} />
         </div>
       </div>
@@ -98,15 +99,16 @@ function EmptyThread({ projectName }: { projectName?: string }) {
   return (
     <div
       className="
-        mx-auto flex w-full max-w-[760px] flex-1 items-center justify-center
+        mx-auto flex w-full max-w-[48rem] flex-1 items-center justify-center
         py-8
       "
     >
-      <div className="w-full max-w-136">
+      <div className="w-full max-w-[34rem]">
         <div className="min-w-0 text-center select-none">
           <h2
             className="
-            text-2xl/tight font-semibold text-pretty text-foreground
+              [font-size:1.5rem] [line-height:1.1] font-semibold
+              text-pretty text-foreground
           "
           >
             {projectName ? (
@@ -119,7 +121,12 @@ function EmptyThread({ projectName }: { projectName?: string }) {
               t("thread.empty.title")
             )}
           </h2>
-          <p className="mx-auto mt-2 max-w-120 text-sm/6 text-muted-foreground">
+          <p
+            className="
+              mx-auto mt-2 max-w-[30rem] [font-size:0.875rem]
+              [line-height:1.5rem] text-muted-foreground
+            "
+          >
             {t("thread.empty.description")}
           </p>
         </div>

@@ -34,6 +34,7 @@ import {
   chatRuntimeConfigQueryOptions,
 } from "@/features/chat/api/queries";
 import { AssistantThread } from "@/features/chat/components/assistant-thread";
+import { workspaceContentColumnClass } from "@/features/chat/components/thread-styles";
 import { AppRuntimeProvider } from "@/features/chat/runtime/app-runtime-provider";
 import { ChatOptionsProvider } from "@/features/chat/runtime/chat-options-context";
 import {
@@ -431,12 +432,12 @@ export class ChatRestoreErrorBoundary extends Component<
           "
         >
           <div
-            className="
-              flex max-w-xl items-start gap-3 rounded-lg border
+            className={`
+              ${workspaceContentColumnClass} flex items-start gap-3 rounded-lg border
               border-rose-500/20 bg-rose-500/8 px-4 py-3 text-sm text-rose-950
               shadow-sm
               dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-100
-            "
+            `}
             role="alert"
           >
             <AlertCircle

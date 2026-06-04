@@ -1,14 +1,16 @@
 import type { Chat } from "@shared/chat";
 import type { ReactElement } from "react";
+import type { SidebarChatDateGroupKey } from "@/app/workspace/workspace-ui-store";
 import {
   RiArrowRightSLine as ChevronRight,
   RiLoader4Line as Loader2,
   RiMessage2Line as MessageSquare,
 } from "@remixicon/react";
 import { AnimatePresence, motion } from "framer-motion";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 
 import { useTranslation } from "react-i18next";
+import { useWorkspaceUiStore } from "@/app/workspace/workspace-ui-store";
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -23,17 +25,10 @@ import {
 import { ChatSidebarItem } from "@/features/chat/components/chat-sidebar-item";
 
 type MaybeAsync = void | Promise<void>;
-type ChatDateGroupKey =
-  | "dayBeforeYesterday"
-  | "older"
-  | "previousMonth"
-  | "previousWeek"
-  | "today"
-  | "yesterday";
 
 interface ChatDateGroup {
   chats: Chat[];
-  key: ChatDateGroupKey;
+  key: SidebarChatDateGroupKey;
   labelKey: string;
 }
 
@@ -48,7 +43,7 @@ interface SimpleChatSidebarSectionProps {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const CHAT_DATE_GROUPS: Array<{
-  key: ChatDateGroupKey;
+  key: SidebarChatDateGroupKey;
   labelKey: string;
 }> = [
   { key: "today", labelKey: "sidebar.dateGroups.today" },
@@ -71,21 +66,13 @@ export function SimpleChatSidebarSection({
   selectedChatId,
 }: SimpleChatSidebarSectionProps): ReactElement {
   const { t } = useTranslation();
-  const [collapsedGroupKeys, setCollapsedGroupKeys] = useState<
-    Set<ChatDateGroupKey>
-  >(() => new Set());
+  const collapsedGroupKeys = useWorkspaceUiStore(
+    (state) => state.collapsedChatDateGroupKeys,
+  );
+  const toggleDateGroup = useWorkspaceUiStore(
+    (state) => state.toggleSidebarChatDateGroup,
+  );
   const groupedChats = useMemo(() => groupChatsByUpdatedAt(chats), [chats]);
-  const toggleDateGroup = (groupKey: ChatDateGroupKey): void => {
-    setCollapsedGroupKeys((current) => {
-      const next = new Set(current);
-      if (next.has(groupKey)) {
-        next.delete(groupKey);
-      } else {
-        next.add(groupKey);
-      }
-      return next;
-    });
-  };
 
   return (
     <SidebarGroup className="py-1">
@@ -197,7 +184,7 @@ export function SimpleChatSidebarSection({
 
 function groupChatsByUpdatedAt(chats: Chat[]): ChatDateGroup[] {
   const todayStart = startOfLocalDay(new Date());
-  const buckets = new Map<ChatDateGroupKey, Chat[]>(
+  const buckets = new Map<SidebarChatDateGroupKey, Chat[]>(
     CHAT_DATE_GROUPS.map((group) => [group.key, []]),
   );
 
@@ -218,7 +205,10 @@ function compareChatsByUpdatedAtDesc(left: Chat, right: Chat): number {
   return chatTimestamp(right) - chatTimestamp(left);
 }
 
-function chatDateGroupKey(chat: Chat, todayStart: number): ChatDateGroupKey {
+function chatDateGroupKey(
+  chat: Chat,
+  todayStart: number,
+): SidebarChatDateGroupKey {
   const timestamp = chatTimestamp(chat);
 
   if (timestamp >= todayStart) return "today";

@@ -9,3 +9,6 @@ export const nativePanelClass =
 
 export const nativeControlRowClass =
   "min-w-0 rounded-md transition-colors hover:bg-foreground/[0.055] active:bg-foreground/[0.075] dark:hover:bg-white/[0.07] dark:active:bg-white/[0.09]";
+
+export const workspaceContentColumnClass =
+  "mx-auto w-full max-w-[var(--workspace-content-max-width)]";

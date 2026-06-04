@@ -85,6 +85,9 @@ export interface LocaleResourceTranslationSidebar {
   dateGroups: LocaleResourceTranslationSidebarDateGroups;
   loadingChats: string;
   loadingProjects: string;
+  modeChat: string;
+  modeSwitcher: string;
+  modeWork: string;
   needsInput: string;
   newChat: string;
   newChatInProject: string;

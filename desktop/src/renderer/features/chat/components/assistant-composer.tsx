@@ -117,7 +117,7 @@ const composerModelMenuTriggerClassName =
 const composerModelMenuValueClassName =
   "min-w-0 max-w-28 truncate text-muted-foreground";
 const composerNativeMenuClassName =
-  "p-1 data-open:zoom-in-100 data-closed:zoom-out-100 data-[side=bottom]:slide-in-from-top-0 data-[side=left]:slide-in-from-right-0 data-[side=right]:slide-in-from-left-0 data-[side=top]:slide-in-from-bottom-0";
+  "flex flex-col p-1 data-open:zoom-in-100 data-closed:zoom-out-100 data-[side=bottom]:slide-in-from-top-0 data-[side=left]:slide-in-from-right-0 data-[side=right]:slide-in-from-left-0 data-[side=top]:slide-in-from-bottom-0";
 const composerNativeMenuLabelClassName =
   "px-2 pb-1 pt-1 text-[11px] font-medium leading-4 text-muted-foreground/80";
 
@@ -339,7 +339,9 @@ export function AssistantComposer({
       <PromptInputBody>
         <PromptInputTextarea
           className="
-            max-h-40 min-h-[4.2rem] px-3.5 py-3 text-[15px]/6
+            max-h-40 min-h-[var(--workspace-composer-min-height)] px-3.5 py-3
+            [font-size:var(--workspace-composer-text-size)]
+            [line-height:var(--workspace-composer-line-height)]
             placeholder:text-muted-foreground/62
           "
           disabled={isInputDisabled}

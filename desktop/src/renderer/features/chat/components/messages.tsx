@@ -76,6 +76,7 @@ import {
   messageActionFooterClass,
   nativeControlRowClass,
   nativePanelClass,
+  workspaceContentColumnClass,
 } from "@/features/chat/components/thread-styles";
 import { useChatOptions } from "@/features/chat/runtime/chat-options-context";
 import { useChatRuntimeActions } from "@/features/chat/runtime/chat-runtime-actions-context";
@@ -84,7 +85,7 @@ import { findPlanModeToggleTarget } from "@/features/chat/runtime/mode-options";
 import { cn } from "@/platform/utils";
 
 const assistantTextContainerClassName = [
-  "min-w-0 max-w-none text-[15px] leading-[1.72] text-foreground/90 hyphens-auto [line-break:loose] [overflow-wrap:anywhere] [text-rendering:optimizeLegibility] [word-break:normal]",
+  "min-w-0 max-w-none text-foreground/90 hyphens-auto [font-size:var(--workspace-message-text-size)] [line-break:loose] [line-height:var(--workspace-message-line-height)] [overflow-wrap:anywhere] [text-rendering:optimizeLegibility] [word-break:normal]",
   "[&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2 [&_a]:decoration-primary/35 [&_a:hover]:decoration-primary/70",
   "[&_blockquote]:my-4 [&_blockquote]:border-l-2 [&_blockquote]:border-foreground/10 [&_blockquote]:pl-3.5 [&_blockquote]:text-[14px] [&_blockquote]:leading-[1.72] [&_blockquote]:text-muted-foreground",
   "[&_[data-streamdown=code-block]]:my-4 [&_[data-streamdown=code-block]]:overflow-hidden [&_[data-streamdown=code-block]]:rounded-lg [&_[data-streamdown=code-block]]:border [&_[data-streamdown=code-block]]:border-foreground/[0.08] [&_[data-streamdown=code-block]]:bg-[#f7f7f8] [&_[data-streamdown=code-block]]:p-0 [&_[data-streamdown=code-block]]:shadow-[0_8px_22px_-24px_rgba(0,0,0,0.5)] dark:[&_[data-streamdown=code-block]]:border-white/10 dark:[&_[data-streamdown=code-block]]:bg-white/[0.045] dark:[&_[data-streamdown=code-block]]:shadow-[0_10px_26px_-26px_rgba(0,0,0,0.8)]",
@@ -108,11 +109,11 @@ const assistantTextContainerClassName = [
   "[&_[data-streamdown=inline-code]]:rounded-[0.38rem] [&_[data-streamdown=inline-code]]:bg-foreground/[0.055] [&_[data-streamdown=inline-code]]:px-[0.32em] [&_[data-streamdown=inline-code]]:py-[0.12em] [&_[data-streamdown=inline-code]]:font-mono [&_[data-streamdown=inline-code]]:text-[0.88em] [&_[data-streamdown=inline-code]]:text-foreground/90 dark:[&_[data-streamdown=inline-code]]:bg-white/[0.075]",
 ].join(" ");
 
-const messageColumnClassName = "mx-auto w-full max-w-[860px]";
+const messageColumnClassName = workspaceContentColumnClass;
 const userMessageColumnClassName =
-  "flex min-w-0 max-w-[min(100%,38rem)] flex-col items-end gap-1.5";
+  "flex w-full min-w-0 flex-col items-end gap-1.5";
 const userMessageBubbleClassName =
-  "min-w-0 max-w-full rounded-lg rounded-br-md bg-primary/95 px-3.5 py-2.5 text-[14px]/6 text-primary-foreground";
+  "min-w-0 max-w-full rounded-lg rounded-br-md bg-primary/95 px-3.5 py-2.5 text-primary-foreground [font-size:var(--workspace-user-bubble-text-size)] [line-height:var(--workspace-user-bubble-line-height)]";
 
 const inspectorCardClassName = nativePanelClass;
 const toolCallCardClassName = nativePanelClass;
@@ -202,7 +203,7 @@ export function UserEditComposer() {
     >
       <ComposerPrimitive.Root
         className="
-          w-full max-w-[min(100%,38rem)] rounded-lg border border-foreground/8
+          w-full rounded-lg border border-foreground/8
           bg-background/90 p-2.5 shadow-[0_8px_22px_-22px_rgba(0,0,0,0.55)]
           backdrop-blur-xl
           dark:border-white/8
@@ -243,7 +244,7 @@ export function AssistantMessage() {
     >
       <div
         className="
-          flex w-full max-w-[760px] flex-col items-start gap-1.5 text-sm/6
+          flex w-full flex-col items-start gap-1.5 text-sm/6
         "
       >
         <div className="w-full">
@@ -503,7 +504,13 @@ function PlainTextMessagePart(
       );
     }
     return (
-      <div className="whitespace-pre-wrap [overflow-wrap:anywhere] [word-break:normal]">
+      <div
+        className="
+          whitespace-pre-wrap [font-size:var(--workspace-user-bubble-text-size)]
+          [line-height:var(--workspace-user-bubble-line-height)]
+          [overflow-wrap:anywhere] [word-break:normal]
+        "
+      >
         {part.text}
       </div>
     );

@@ -110,7 +110,7 @@ export function ReadonlyProjectLabel({
         className={`${projectControlClassName} inline-flex min-w-0 items-center pr-3 text-muted-foreground`}
         title={projectPath ?? projectName}
       >
-        <span className="min-w-0 truncate">{projectName}</span>
+        <span className="min-w-0 select-none truncate">{projectName}</span>
       </span>
     </div>
   );

@@ -1136,8 +1136,10 @@ export const PromptInputTextarea = forwardRef<
     <InputGroupTextarea
       className={cn(
         `
-          field-sizing-content max-h-48 min-h-16 text-[15px]/6 wrap-anywhere
+          field-sizing-content max-h-48 min-h-16
+          wrap-anywhere [font-size:var(--workspace-composer-text-size,15px)]
           [line-break:loose]
+          [line-height:var(--workspace-composer-line-height,1.5rem)]
           placeholder:text-muted-foreground/65 placeholder:select-none
         `,
         className,
