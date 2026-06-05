@@ -539,7 +539,7 @@ fn codex_rollout_history_entry(
             let payload = record.get("payload")?;
             match payload.get("type").and_then(Value::as_str) {
                 Some("message") if payload.get("role").and_then(Value::as_str) == Some("user") => {
-                    if codex_rollout_is_environment_context_message(payload) {
+                    if codex_replay_is_internal_user_message(payload) {
                         return None;
                     }
                     Some((HistoryRole::User, codex_content_delta(payload), None))
@@ -581,24 +581,21 @@ fn codex_rollout_history_entry(
     }
 }
 
-fn codex_rollout_is_environment_context_message(payload: &Value) -> bool {
-    payload
-        .get("content")
-        .and_then(Value::as_array)
-        .is_some_and(|parts| {
-            let [part] = parts.as_slice() else {
-                return false;
-            };
-            part.get("type").and_then(Value::as_str) == Some("input_text")
-                && part
-                    .get("text")
-                    .and_then(Value::as_str)
-                    .is_some_and(|text| {
-                        let trimmed = text.trim();
-                        trimmed.starts_with("<environment_context>")
-                            && trimmed.ends_with("</environment_context>")
-                    })
-        })
+fn codex_replay_is_internal_user_message(item: &Value) -> bool {
+    let text = codex_content_text(item);
+    let trimmed = text.trim();
+    codex_replay_is_environment_context_text(trimmed)
+        || codex_replay_is_agents_instructions_text(trimmed)
+}
+
+fn codex_replay_is_environment_context_text(text: &str) -> bool {
+    text.starts_with("<environment_context>") && text.ends_with("</environment_context>")
+}
+
+fn codex_replay_is_agents_instructions_text(text: &str) -> bool {
+    text.starts_with("# AGENTS.md instructions for ")
+        && text.contains("\n<INSTRUCTIONS>\n")
+        && text.contains("</INSTRUCTIONS>")
 }
 
 fn append_hydrated_turns(
@@ -624,10 +621,18 @@ fn append_hydrated_turns(
         {
             let replay_item = codex_history_replay_item(item);
             let (role, content, tool) = match replay_item.get("type").and_then(Value::as_str) {
-                Some("userMessage") => (HistoryRole::User, codex_content_delta(replay_item), None),
+                Some("userMessage") => {
+                    if codex_replay_is_internal_user_message(replay_item) {
+                        continue;
+                    }
+                    (HistoryRole::User, codex_content_delta(replay_item), None)
+                }
                 Some("message")
                     if replay_item.get("role").and_then(Value::as_str) == Some("user") =>
                 {
+                    if codex_replay_is_internal_user_message(replay_item) {
+                        continue;
+                    }
                     (HistoryRole::User, codex_content_delta(replay_item), None)
                 }
                 Some("message")
@@ -1784,6 +1789,82 @@ mod tests {
     }
 
     #[test]
+    fn thread_resume_drops_codex_internal_agents_instructions() {
+        let adapter = CodexAdapter::app_server();
+        let mut engine = AngelEngine::with_available_runtime(
+            angel_engine::ProtocolFlavor::CodexAppServer,
+            angel_engine::RuntimeCapabilities::new("test"),
+            adapter.capabilities(),
+        );
+        let request_id = engine
+            .plan_command(angel_engine::EngineCommand::ResumeConversation {
+                target: angel_engine::ResumeTarget::Remote {
+                    id: "thread_1".to_string(),
+                    hydrate: true,
+                    cwd: None,
+                },
+            })
+            .expect("resume plan")
+            .request_id
+            .expect("request id");
+
+        let output = adapter
+            .decode_response(
+                &engine,
+                &request_id,
+                &json!({
+                    "thread": {
+                        "id": "thread_1",
+                        "turns": [
+                            {
+                                "items": [
+                                    {
+                                        "type": "response_item",
+                                        "payload": {
+                                            "type": "message",
+                                            "role": "user",
+                                            "content": [
+                                                {
+                                                    "type": "input_text",
+                                                    "text": "# AGENTS.md instructions for /tmp/project\n\n<INSTRUCTIONS>\nDo not display this.\n</INSTRUCTIONS>"
+                                                },
+                                                {
+                                                    "type": "input_text",
+                                                    "text": "<environment_context>\n  <cwd>/tmp/project</cwd>\n</environment_context>"
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    {
+                                        "type": "userMessage",
+                                        "content": [{ "type": "text", "text": "真实问题" }]
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                }),
+            )
+            .expect("thread resume response");
+
+        let replay = output
+            .events
+            .iter()
+            .filter_map(|event| match event {
+                EngineEvent::HistoryReplayChunk { entry, .. } => Some(entry),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(replay.len(), 1);
+        assert_eq!(replay[0].role, HistoryRole::User);
+        assert!(matches!(
+            &replay[0].content,
+            ContentDelta::Text(text) if text == "真实问题"
+        ));
+    }
+
+    #[test]
     fn thread_read_hydrates_rollout_turn_items_into_history_replay() {
         let adapter = CodexAdapter::app_server();
         let conversation_id = ConversationId::new("conv");
@@ -1878,10 +1959,11 @@ mod tests {
     fn rollout_history_ignores_event_user_message_channel() {
         let conversation_id = ConversationId::new("conv");
         let mut output = TransportOutput::default();
-        let content = r#"{"timestamp":"2026-05-17T23:55:29.683Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"<environment_context>\n  <cwd>/Users/akrc</cwd>\n  <shell>zsh</shell>\n  <current_date>2026-05-18</current_date>\n  <timezone>Asia/Shanghai</timezone>\n</environment_context>"}]}}
+        let content = r##"{"timestamp":"2026-05-17T23:55:29.683Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"<environment_context>\n  <cwd>/Users/akrc</cwd>\n  <shell>zsh</shell>\n  <current_date>2026-05-18</current_date>\n  <timezone>Asia/Shanghai</timezone>\n</environment_context>"}]}}
+{"timestamp":"2026-05-17T23:55:29.700Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"# AGENTS.md instructions for /Users/akrc/Developer/angel-engine\n\n<INSTRUCTIONS>\nDo not display this.\n</INSTRUCTIONS>"},{"type":"input_text","text":"<environment_context>\n  <cwd>/Users/akrc/Developer/angel-engine</cwd>\n</environment_context>"}]}}
 {"timestamp":"2026-05-17T23:55:29.782Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"你好"}]}}
 {"timestamp":"2026-05-17T23:55:29.782Z","type":"event_msg","payload":{"type":"user_message","message":"你好","images":[],"local_images":[],"text_elements":[]}}
-{"timestamp":"2026-05-17T23:55:31.725Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"你好。你想让我帮你处理什么？"}]}}"#;
+{"timestamp":"2026-05-17T23:55:31.725Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"你好。你想让我帮你处理什么？"}]}}"##;
 
         let has_local_history =
             append_local_rollout_history_content(&mut output, &conversation_id, content);

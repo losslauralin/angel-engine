@@ -244,6 +244,7 @@ export function SettingsPage({
                 <>
                   {builtinAgentOptions.map((agent) => {
                     const enabled = enabledRuntimeSet.has(agent.id);
+                    const iconUrl = agentIconUrl[agent.id];
                     const isOnlyEnabled = enabled && visibleEnabledCount <= 1;
 
                     return (
@@ -269,12 +270,12 @@ export function SettingsPage({
                             rounded-lg border border-foreground/10 bg-background
                           "
                         >
-                          {agentIconUrl[agent.id] ? (
+                          {iconUrl ? (
                             <img
                               alt=""
                               className="size-5 object-contain"
                               draggable={false}
-                              src={agentIconUrl[agent.id]}
+                              src={iconUrl}
                             />
                           ) : (
                             <Bot className="size-5 text-muted-foreground" />

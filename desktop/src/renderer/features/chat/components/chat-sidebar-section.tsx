@@ -100,6 +100,7 @@ export function ChatSidebarSection({
                       onShowContextMenu={async () =>
                         onShowChatContextMenu(chat)
                       }
+                      runtime={chat.runtime}
                       title={displayChatTitle(chat.title, t)}
                       tooltip={displayChatTitle(chat.title, t)}
                     />

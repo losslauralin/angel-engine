@@ -1,11 +1,18 @@
 import type { MouseEventHandler, ReactElement } from "react";
-import { RiArchiveLine as Archive } from "@remixicon/react";
+import {
+  RiArchiveLine as Archive,
+  RiRobot2Line as Bot,
+} from "@remixicon/react";
 
 import { useTranslation } from "react-i18next";
 import {
   WorkspaceSidebarMenuAction,
   WorkspaceSidebarMenuButton,
 } from "@/components/workspace-sidebar-primitives";
+import {
+  agentRuntimeIconSvg,
+  agentRuntimeLabel,
+} from "@/features/agents/agent-runtime-icons";
 import { useChatAttention } from "@/features/chat/state/chat-run-store";
 
 import { ChatRunningPulse } from "./chat-running-pulse";
@@ -18,6 +25,7 @@ interface ChatSidebarItemProps {
   onArchiveChat?: () => Promise<void> | void;
   onOpenChat: () => void;
   onShowContextMenu?: () => Promise<void> | void;
+  runtime?: string | null;
 }
 
 export function ChatSidebarItem({
@@ -28,8 +36,11 @@ export function ChatSidebarItem({
   onArchiveChat,
   onOpenChat,
   onShowContextMenu,
+  runtime,
 }: ChatSidebarItemProps): ReactElement {
   const { t } = useTranslation();
+  const runtimeIconSvg = agentRuntimeIconSvg(runtime);
+  const runtimeLabel = agentRuntimeLabel(runtime);
   const handleContextMenu: MouseEventHandler<HTMLButtonElement> = (event) => {
     event.preventDefault();
     if (onShowContextMenu) {
@@ -41,6 +52,7 @@ export function ChatSidebarItem({
     <>
       <WorkspaceSidebarMenuButton
         className="
+          gap-1.5
           group-has-data-[sidebar=menu-action]/menu-item:pr-2.5!
           md:group-hover/menu-item:pr-8!
         "
@@ -49,6 +61,26 @@ export function ChatSidebarItem({
         onContextMenu={onShowContextMenu ? handleContextMenu : undefined}
         title={tooltip}
       >
+        <span
+          className="
+            flex size-[1rem] shrink-0 items-center justify-center
+          "
+          title={runtimeLabel}
+        >
+          {runtimeIconSvg ? (
+            <span
+              aria-hidden="true"
+              className="
+                flex size-[0.625rem] items-center justify-center
+                text-sidebar-foreground/55
+                [&_svg]:block [&_svg]:size-[0.625rem] [&_svg]:shrink-0
+              "
+              dangerouslySetInnerHTML={{ __html: runtimeIconSvg }}
+            />
+          ) : (
+            <Bot className="size-[0.625rem] text-sidebar-foreground/55" />
+          )}
+        </span>
         <span
           className="
             block min-w-0 flex-1 truncate overflow-hidden text-left
