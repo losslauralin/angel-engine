@@ -19,6 +19,8 @@ const agentSettingsStorageKey = "angel-engine.agent-settings.v1";
 const languageStorageKey = "angel-engine.language";
 const settingsBroadcastChannel = "angel-engine.settings.v1";
 const senderId = globalThis.crypto?.randomUUID?.() ?? String(Date.now());
+const worktreeDirtyPromptStorageKey =
+  "angel-engine.worktree-dirty-prompt-enabled";
 
 interface SettingsBroadcastMessage {
   agentSettings: AgentSettings;
@@ -26,6 +28,7 @@ interface SettingsBroadcastMessage {
   refreshAgentOptions?: boolean;
   senderId: string;
   themeMode: DesktopThemeMode;
+  worktreeDirtyPromptEnabled: boolean;
 }
 
 interface SettingsState {
@@ -45,8 +48,10 @@ interface SettingsState {
   ) => void;
   setLanguage: (language: SupportedLanguage) => void;
   setThemeMode: (themeMode: DesktopThemeMode) => void;
+  setWorktreeDirtyPromptEnabled: (enabled: boolean) => void;
   themeMode: DesktopThemeMode;
   updateCustomAgent: (input: UpdateCustomAgentInput) => Promise<CustomAgent>;
+  worktreeDirtyPromptEnabled: boolean;
 }
 
 const broadcastChannel = createBroadcastChannel();
@@ -155,6 +160,13 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
       current.themeMode === themeMode ? {} : { themeMode },
     );
   },
+  setWorktreeDirtyPromptEnabled: (enabled) => {
+    updateSettingsState(set, get, (current) =>
+      current.worktreeDirtyPromptEnabled === enabled
+        ? {}
+        : { worktreeDirtyPromptEnabled: enabled },
+    );
+  },
   themeMode: readDesktopThemeMode(),
   updateCustomAgent: async (input) => {
     const agent = await getApiClient().agents.updateCustom(input);
@@ -171,6 +183,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     await get().refreshAvailableAgentOptions();
     return agent;
   },
+  worktreeDirtyPromptEnabled: readWorktreeDirtyPromptEnabled(),
 }));
 
 void useSettingsStore
@@ -187,6 +200,7 @@ broadcastChannel?.addEventListener("message", (event) => {
     agentSettings: message.agentSettings,
     language: message.language,
     themeMode: message.themeMode,
+    worktreeDirtyPromptEnabled: message.worktreeDirtyPromptEnabled,
   });
   if (message.refreshAgentOptions === true) {
     void useSettingsStore
@@ -221,7 +235,10 @@ function updateSettingsState(
 }
 
 function settingsBroadcastMessage(
-  state: Pick<SettingsState, "agentSettings" | "language" | "themeMode">,
+  state: Pick<
+    SettingsState,
+    "agentSettings" | "language" | "themeMode" | "worktreeDirtyPromptEnabled"
+  >,
   options: UpdateSettingsStateOptions = {},
 ): SettingsBroadcastMessage {
   return {
@@ -230,12 +247,14 @@ function settingsBroadcastMessage(
     refreshAgentOptions: options.refreshAgentOptions,
     senderId,
     themeMode: state.themeMode,
+    worktreeDirtyPromptEnabled: state.worktreeDirtyPromptEnabled,
   };
 }
 
 function applySettingsSideEffects(message: SettingsBroadcastMessage) {
   writeAgentSettings(message.agentSettings);
   writeLanguage(message.language);
+  writeWorktreeDirtyPromptEnabled(message.worktreeDirtyPromptEnabled);
   setDesktopThemeMode(message.themeMode);
 }
 
@@ -250,6 +269,9 @@ function readBroadcastMessage(value: unknown): SettingsBroadcastMessage | null {
     refreshAgentOptions: input.refreshAgentOptions === true,
     senderId: input.senderId,
     themeMode: sanitizeThemeMode(input.themeMode),
+    worktreeDirtyPromptEnabled: sanitizeWorktreeDirtyPromptEnabled(
+      input.worktreeDirtyPromptEnabled,
+    ),
   };
 }
 
@@ -288,6 +310,29 @@ function readLanguage() {
 
 function writeLanguage(language: SupportedLanguage) {
   window.localStorage.setItem(languageStorageKey, language);
+}
+
+function readWorktreeDirtyPromptEnabled() {
+  try {
+    return sanitizeWorktreeDirtyPromptEnabled(
+      window.localStorage.getItem(worktreeDirtyPromptStorageKey),
+    );
+  } catch {
+    return true;
+  }
+}
+
+function writeWorktreeDirtyPromptEnabled(enabled: boolean) {
+  window.localStorage.setItem(
+    worktreeDirtyPromptStorageKey,
+    enabled ? "true" : "false",
+  );
+}
+
+function sanitizeWorktreeDirtyPromptEnabled(value: unknown) {
+  if (value === false || value === "false") return false;
+  if (value === true || value === "true") return true;
+  return true;
 }
 
 function sanitizeThemeMode(value: unknown): DesktopThemeMode {

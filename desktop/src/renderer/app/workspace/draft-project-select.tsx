@@ -1,6 +1,10 @@
+import type { ChatCreationLocation } from "@shared/chat";
 import type { Project } from "@shared/projects";
 
-import { RiFolderLine as Folder } from "@remixicon/react";
+import {
+  RiFolderLine as Folder,
+  RiGitBranchLine as GitBranch,
+} from "@remixicon/react";
 import { useTranslation } from "react-i18next";
 import { getProjectDisplayName } from "@/app/workspace/workspace-display";
 import {
@@ -88,10 +92,51 @@ export function DraftProjectSelect({
   );
 }
 
+export function DraftCreationLocationSelect({
+  onValueChange,
+  value,
+}: {
+  onValueChange: (value: ChatCreationLocation) => void;
+  value: ChatCreationLocation;
+}) {
+  const { t } = useTranslation();
+
+  return (
+    <div className="relative w-fit max-w-[12rem]">
+      <GitBranch
+        className="
+          pointer-events-none absolute top-1/2 left-2.5 z-10 size-3.5
+          -translate-y-1/2 text-muted-foreground/85
+        "
+      />
+      <NativeSelect
+        aria-label={t("workspace.creationLocationSelect")}
+        className="max-w-[12rem]"
+        onChange={(event) =>
+          onValueChange(event.currentTarget.value as ChatCreationLocation)
+        }
+        selectClassName={`${projectControlClassName} max-w-[12rem] hover:bg-background/92 focus-visible:!border-foreground/12 focus-visible:!ring-0 dark:hover:bg-card/90 dark:focus-visible:!border-white/14`}
+        size="sm"
+        title={t("workspace.creationLocationSelect")}
+        value={value}
+      >
+        <NativeSelectOption value="project">
+          {t("workspace.creationLocationProject")}
+        </NativeSelectOption>
+        <NativeSelectOption value="worktree">
+          {t("workspace.creationLocationWorktree")}
+        </NativeSelectOption>
+      </NativeSelect>
+    </div>
+  );
+}
+
 export function ReadonlyProjectLabel({
+  labelSuffix,
   projectName,
   projectPath,
 }: {
+  labelSuffix?: string;
   projectName: string;
   projectPath?: string;
 }) {
@@ -111,6 +156,11 @@ export function ReadonlyProjectLabel({
         title={projectPath ?? projectName}
       >
         <span className="min-w-0 select-none truncate">{projectName}</span>
+        {labelSuffix ? (
+          <span className="shrink-0 select-none text-muted-foreground/70">
+            &nbsp;· {labelSuffix}
+          </span>
+        ) : null}
       </span>
     </div>
   );

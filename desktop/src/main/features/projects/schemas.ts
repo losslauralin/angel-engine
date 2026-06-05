@@ -13,6 +13,11 @@ export const projectFileSearchInput = type({
   root: "string > 0",
 });
 
+export const projectGitStatusInput = type({
+  "+": "ignore",
+  projectId: "string > 0",
+});
+
 export const updateProjectInput = type({
   "+": "ignore",
   id: "string > 0",

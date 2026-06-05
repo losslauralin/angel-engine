@@ -12,7 +12,10 @@ import type {
   ChatSetRuntimeInput,
   ProjectFileSearchInput,
 } from "@shared/chat";
-import type { CreateProjectInput } from "@shared/projects";
+import type {
+  CreateProjectInput,
+  ProjectGitStatusInput,
+} from "@shared/projects";
 import { ipc } from "@/platform/ipc";
 
 interface AgentsApiClient {
@@ -56,6 +59,9 @@ interface ChatApiClient {
 interface ProjectsApiClient {
   chooseDirectory: () => ReturnType<typeof ipc.projectsChooseDirectory>;
   create: (input: CreateProjectInput) => ReturnType<typeof ipc.projectsCreate>;
+  gitStatus: (
+    input: ProjectGitStatusInput,
+  ) => ReturnType<typeof ipc.projectsGitStatus>;
   list: () => ReturnType<typeof ipc.projectsList>;
   searchFiles: (
     input: ProjectFileSearchInput,
@@ -105,6 +111,8 @@ export function createApiClient(): ApiClient {
     projects: {
       chooseDirectory: async () => ipc.projectsChooseDirectory(),
       create: async (input: CreateProjectInput) => ipc.projectsCreate(input),
+      gitStatus: async (input: ProjectGitStatusInput) =>
+        ipc.projectsGitStatus(input),
       list: async () => ipc.projectsList(),
       searchFiles: async (input: ProjectFileSearchInput) =>
         ipc.projectsSearchFiles(input),

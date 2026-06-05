@@ -60,8 +60,13 @@ export {
   parseImageDataUrl,
 };
 
+export type ChatCreationLocation = "project" | "worktree";
+export interface ChatCreationLocationInput {
+  creationLocation?: ChatCreationLocation;
+}
+
 export type Chat = JsChat;
-export type ChatCreateInput = JsChatCreateInput;
+export type ChatCreateInput = JsChatCreateInput & ChatCreationLocationInput;
 export type ChatRuntimeConfigInput = JsChatRuntimeConfigInput;
 export type ChatRuntimeConfigOption = JsChatRuntimeConfigOption;
 export type ChatAgentState = JsChatAgentState;
@@ -81,7 +86,7 @@ export type ChatElicitationQuestionOption = JsChatElicitationQuestionOption;
 export type ChatElicitationQuestion = JsChatElicitationQuestion;
 export type ChatElicitation = JsChatElicitation;
 export type ChatAttachmentInput = JsChatAttachmentInput;
-export type ChatSendInput = JsChatSendInput;
+export type ChatSendInput = JsChatSendInput & ChatCreationLocationInput;
 export type ChatStreamPart = "reasoning" | "text";
 
 export interface ChatAvailableCommand {
@@ -188,6 +193,7 @@ export type ChatStreamEvent =
   | { type: "done" };
 
 export interface ChatPrewarmInput {
+  creationLocation?: ChatCreationLocation;
   projectId?: string;
   runtime?: string;
 }

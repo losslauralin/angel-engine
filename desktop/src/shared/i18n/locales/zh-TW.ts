@@ -60,12 +60,21 @@ export const zhTW = {
       backgroundChatCompleted: "背景聊天已完成",
       backgroundChatNeedsInput: "背景聊天需要輸入",
       backgroundChatStatus: "背景聊天狀態",
+      creationLocationProject: "專案本機",
+      creationLocationSelect: "建立位置",
+      creationLocationWorktree: "Worktree",
       newChat: "新聊天",
       newChatInProject: "{{projectName}} 中的新聊天",
       newProject: "新建專案",
       noProject: "無專案",
       projectSelect: "專案",
       settings: "設定",
+      worktreeDirtyContinue: "繼續",
+      worktreeDirtyDescription:
+        "目前專案有未提交變更。新的 worktree 會從目前 HEAD 建立，不會包含這些未提交內容。",
+      worktreeDirtyRemember: "以後不再提醒",
+      worktreeDirtyTitle: "要從未提交的倉庫建立 worktree 嗎？",
+      worktreeNotGitRepository: "這個專案目前不是可用的 Git 倉庫。",
     },
     sidebar: {
       addProject: "新增專案",
@@ -138,8 +147,15 @@ export const zhTW = {
         agents: "Agents",
         appearance: "外觀",
         danger: "進階",
+        workspace: "工作區",
       },
       title: "設定",
+      workspace: {
+        dirtyPromptDescription:
+          "當所選專案存在未提交變更時，建立 worktree 前先詢問。",
+        dirtyPromptSwitchLabel: "從 dirty 倉庫建立 worktree 前提醒",
+        dirtyPromptTitle: "Dirty 倉庫提醒",
+      },
     },
     updates: {
       checkFailed: "無法檢查更新",

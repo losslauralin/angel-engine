@@ -60,12 +60,21 @@ export const zhCN = {
       backgroundChatCompleted: "后台聊天已完成",
       backgroundChatNeedsInput: "后台聊天需要输入",
       backgroundChatStatus: "后台聊天状态",
+      creationLocationProject: "项目本地",
+      creationLocationSelect: "创建位置",
+      creationLocationWorktree: "Worktree",
       newChat: "新聊天",
       newChatInProject: "{{projectName}} 中的新聊天",
       newProject: "新建项目",
       noProject: "无项目",
       projectSelect: "项目",
       settings: "设置",
+      worktreeDirtyContinue: "继续",
+      worktreeDirtyDescription:
+        "当前项目有未提交更改。新的 worktree 会从当前 HEAD 创建，不会包含这些未提交内容。",
+      worktreeDirtyRemember: "以后不再提醒",
+      worktreeDirtyTitle: "要从未提交的仓库创建 worktree 吗？",
+      worktreeNotGitRepository: "这个项目当前不是可用的 Git 仓库。",
     },
     sidebar: {
       addProject: "添加项目",
@@ -137,8 +146,15 @@ export const zhCN = {
         agents: "Agents",
         appearance: "外观",
         danger: "高级",
+        workspace: "工作区",
       },
       title: "设置",
+      workspace: {
+        dirtyPromptDescription:
+          "当所选项目存在未提交更改时，创建 worktree 前先询问。",
+        dirtyPromptSwitchLabel: "从 dirty 仓库创建 worktree 前提醒",
+        dirtyPromptTitle: "Dirty 仓库提醒",
+      },
     },
     updates: {
       checkFailed: "无法检查更新",

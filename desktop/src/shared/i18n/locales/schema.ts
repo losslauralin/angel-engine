@@ -59,12 +59,20 @@ export interface LocaleResourceTranslationWorkspace {
   backgroundChatCompleted: string;
   backgroundChatNeedsInput: string;
   backgroundChatStatus: string;
+  creationLocationProject: string;
+  creationLocationSelect: string;
+  creationLocationWorktree: string;
   newChat: string;
   newChatInProject: string;
   newProject: string;
   noProject: string;
   projectSelect: string;
   settings: string;
+  worktreeDirtyContinue: string;
+  worktreeDirtyDescription: string;
+  worktreeDirtyRemember: string;
+  worktreeDirtyTitle: string;
+  worktreeNotGitRepository: string;
 }
 
 export interface LocaleResourceTranslationSidebarDateGroups {
@@ -145,6 +153,13 @@ export interface LocaleResourceTranslationSettingsTabs {
   agents: string;
   appearance: string;
   danger: string;
+  workspace: string;
+}
+
+export interface LocaleResourceTranslationSettingsWorkspace {
+  dirtyPromptDescription: string;
+  dirtyPromptSwitchLabel: string;
+  dirtyPromptTitle: string;
 }
 
 export interface LocaleResourceTranslationSettings {
@@ -154,6 +169,7 @@ export interface LocaleResourceTranslationSettings {
   description: string;
   tabs: LocaleResourceTranslationSettingsTabs;
   title: string;
+  workspace: LocaleResourceTranslationSettingsWorkspace;
 }
 
 export interface LocaleResourceTranslationUpdates {

@@ -61,12 +61,22 @@ export const fr = {
       backgroundChatNeedsInput:
         "La discussion en arrière-plan attend une saisie",
       backgroundChatStatus: "État de la discussion en arrière-plan",
+      creationLocationProject: "Projet",
+      creationLocationSelect: "Créer dans",
+      creationLocationWorktree: "Worktree",
       newChat: "Nouvelle discussion",
       newChatInProject: "Nouvelle discussion dans {{projectName}}",
       newProject: "Nouveau projet",
       noProject: "Aucun projet",
       projectSelect: "Projet",
       settings: "Paramètres",
+      worktreeDirtyContinue: "Continuer",
+      worktreeDirtyDescription:
+        "Le projet sélectionné a des modifications non validées. Le nouveau worktree sera créé depuis le HEAD actuel, donc ces modifications ne seront pas incluses.",
+      worktreeDirtyRemember: "Ne plus m’avertir",
+      worktreeDirtyTitle: "Créer un worktree depuis un dépôt dirty ?",
+      worktreeNotGitRepository:
+        "Ce projet n’est plus disponible comme dépôt Git.",
     },
     sidebar: {
       addProject: "Ajouter un projet",
@@ -140,8 +150,16 @@ export const fr = {
         agents: "Agents",
         appearance: "Apparence",
         danger: "Avancé",
+        workspace: "Espace de travail",
       },
       title: "Paramètres",
+      workspace: {
+        dirtyPromptDescription:
+          "Demander avant de créer un worktree quand le projet sélectionné a des modifications non validées.",
+        dirtyPromptSwitchLabel:
+          "Avertir avant de créer des worktrees depuis des dépôts dirty",
+        dirtyPromptTitle: "Avertissement de dépôt dirty",
+      },
     },
     updates: {
       checkFailed: "Impossible de rechercher les mises à jour",

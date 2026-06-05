@@ -57,6 +57,7 @@ import { isCustomAgentRuntime } from "../../../shared/agents";
 import { normalizeChatAttachmentsInput } from "../../../shared/chat";
 import { isTextLikeMimeType } from "../../../shared/mime";
 import { getCustomAgent } from "../agents/repository";
+import { createProjectWorktree } from "../projects/git";
 import { getProject } from "../projects/repository";
 import {
   createChat,
@@ -159,6 +160,10 @@ export async function inspectChatRuntimeConfig(
 }
 
 export function createChatFromInput(input: ChatCreateInput): Chat {
+  if (input.creationLocation === "worktree") {
+    throw new Error("Worktree chats must be created by sending a message.");
+  }
+
   return createChat({
     ...input,
     cwd: cwdForProjectOrStandalone(input.projectId),
@@ -218,6 +223,10 @@ export function setChatRuntime(input: ChatSetRuntimeInput): Chat {
 export async function prewarmChat(
   input: ChatPrewarmInput,
 ): Promise<ChatPrewarmResult> {
+  if (input.creationLocation === "worktree") {
+    throw new Error("Worktree chats cannot be prewarmed.");
+  }
+
   const key = chatPrewarmKey(input);
   const existing = chatPrewarms.get(key);
   if (existing) {
@@ -419,7 +428,7 @@ async function prepareChatForSend(input: ChatSendInput): Promise<{
   }
 
   const chat = createChat({
-    cwd: cwdForProjectOrStandalone(input.projectId),
+    cwd: await cwdForNewChat(input),
     projectId: input.projectId,
     runtime: input.runtime,
   });
@@ -507,6 +516,8 @@ function chatPrewarmMatches(prewarm: ChatPrewarm, sendInput: ChatSendInput) {
   const prewarmInput = prewarm.input;
   return (
     prewarm.cwd === cwdForProjectOrStandalone(sendInput.projectId) &&
+    (prewarmInput.creationLocation ?? "project") ===
+      (sendInput.creationLocation ?? "project") &&
     (prewarmInput.projectId ?? null) === (sendInput.projectId ?? null) &&
     (prewarmInput.runtime ?? undefined) === (sendInput.runtime ?? undefined)
   );
@@ -516,16 +527,28 @@ function chatPrewarmKey(input: ChatPrewarmInput) {
   return JSON.stringify([
     input.runtime ?? null,
     input.projectId ?? null,
+    input.creationLocation ?? "project",
     cwdForProjectOrStandalone(input.projectId),
   ]);
 }
 
 function cwdForChat(chat: Chat, projectId?: string | null): string {
   return (
-    cwdForProjectId(projectId ?? chat.projectId) ??
     chat.cwd ??
+    cwdForProjectId(projectId ?? chat.projectId) ??
     standaloneChatCwd()
   );
+}
+
+async function cwdForNewChat(input: ChatSendInput) {
+  if (input.creationLocation === "worktree") {
+    if (!input.projectId) {
+      throw new Error("Project is required to create a git worktree.");
+    }
+    return (await createProjectWorktree({ projectId: input.projectId })).cwd;
+  }
+
+  return cwdForProjectOrStandalone(input.projectId);
 }
 
 function cwdForProjectOrStandalone(projectId: string | null | undefined) {

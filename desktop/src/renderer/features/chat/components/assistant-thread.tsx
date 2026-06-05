@@ -18,9 +18,11 @@ import { workspaceContentColumnClass } from "@/features/chat/components/thread-s
 
 export function AssistantThread({
   composerFloatingAccessory,
+  onBeforeSubmit,
   projectName,
 }: {
   composerFloatingAccessory?: ReactNode;
+  onBeforeSubmit?: () => boolean | Promise<boolean>;
   projectName?: string;
 }) {
   const { t } = useTranslation();
@@ -89,7 +91,10 @@ export function AssistantThread({
         "
       >
         <div className={workspaceContentColumnClass}>
-          <AssistantComposer floatingAccessory={composerFloatingAccessory} />
+          <AssistantComposer
+            floatingAccessory={composerFloatingAccessory}
+            onBeforeSubmit={onBeforeSubmit}
+          />
         </div>
       </div>
     </ThreadPrimitive.Root>

@@ -60,12 +60,22 @@ export const es = {
       backgroundChatCompleted: "Chat en segundo plano completado",
       backgroundChatNeedsInput: "El chat en segundo plano necesita entrada",
       backgroundChatStatus: "Estado del chat en segundo plano",
+      creationLocationProject: "Proyecto",
+      creationLocationSelect: "Crear en",
+      creationLocationWorktree: "Worktree",
       newChat: "Nuevo chat",
       newChatInProject: "Nuevo chat en {{projectName}}",
       newProject: "Nuevo proyecto",
       noProject: "Sin proyecto",
       projectSelect: "Proyecto",
       settings: "Configuración",
+      worktreeDirtyContinue: "Continuar",
+      worktreeDirtyDescription:
+        "El proyecto seleccionado tiene cambios sin confirmar. El nuevo worktree se creará desde el HEAD actual, por lo que esos cambios no se incluirán.",
+      worktreeDirtyRemember: "No volver a avisarme",
+      worktreeDirtyTitle: "¿Crear worktree desde un repositorio dirty?",
+      worktreeNotGitRepository:
+        "Este proyecto ya no está disponible como repositorio Git.",
     },
     sidebar: {
       addProject: "Agregar proyecto",
@@ -139,8 +149,16 @@ export const es = {
         agents: "Agents",
         appearance: "Apariencia",
         danger: "Avanzado",
+        workspace: "Espacio de trabajo",
       },
       title: "Configuración",
+      workspace: {
+        dirtyPromptDescription:
+          "Preguntar antes de crear un worktree cuando el proyecto seleccionado tenga cambios sin confirmar.",
+        dirtyPromptSwitchLabel:
+          "Avisar antes de crear worktrees desde repositorios dirty",
+        dirtyPromptTitle: "Aviso de repositorio dirty",
+      },
     },
     updates: {
       checkFailed: "No se pudieron buscar actualizaciones",

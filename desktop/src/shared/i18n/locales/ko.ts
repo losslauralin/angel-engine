@@ -60,12 +60,22 @@ export const ko = {
       backgroundChatCompleted: "백그라운드 채팅 완료",
       backgroundChatNeedsInput: "백그라운드 채팅에 입력 필요",
       backgroundChatStatus: "백그라운드 채팅 상태",
+      creationLocationProject: "프로젝트",
+      creationLocationSelect: "생성 위치",
+      creationLocationWorktree: "Worktree",
       newChat: "새 채팅",
       newChatInProject: "{{projectName}}의 새 채팅",
       newProject: "새 프로젝트",
       noProject: "프로젝트 없음",
       projectSelect: "프로젝트",
       settings: "설정",
+      worktreeDirtyContinue: "계속",
+      worktreeDirtyDescription:
+        "선택한 프로젝트에 커밋되지 않은 변경 사항이 있습니다. 새 worktree는 현재 HEAD에서 생성되므로 해당 변경 사항은 포함되지 않습니다.",
+      worktreeDirtyRemember: "다시 경고하지 않기",
+      worktreeDirtyTitle: "dirty 저장소에서 worktree를 만들까요?",
+      worktreeNotGitRepository:
+        "이 프로젝트는 더 이상 Git 저장소로 사용할 수 없습니다.",
     },
     sidebar: {
       addProject: "프로젝트 추가",
@@ -139,8 +149,15 @@ export const ko = {
         agents: "Agents",
         appearance: "모양",
         danger: "고급",
+        workspace: "작업 공간",
       },
       title: "설정",
+      workspace: {
+        dirtyPromptDescription:
+          "선택한 프로젝트에 커밋되지 않은 변경 사항이 있을 때 worktree 생성 전에 확인합니다.",
+        dirtyPromptSwitchLabel: "dirty 저장소에서 worktree를 만들기 전에 경고",
+        dirtyPromptTitle: "dirty 저장소 경고",
+      },
     },
     updates: {
       checkFailed: "업데이트를 확인할 수 없음",

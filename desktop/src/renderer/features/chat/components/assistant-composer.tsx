@@ -123,8 +123,10 @@ const composerNativeMenuLabelClassName =
 
 export function AssistantComposer({
   floatingAccessory,
+  onBeforeSubmit,
 }: {
   floatingAccessory?: ReactNode;
+  onBeforeSubmit?: () => boolean | Promise<boolean>;
 }) {
   const { t } = useTranslation();
   const aui = useAui();
@@ -176,6 +178,9 @@ export function AssistantComposer({
       if (!hasMessage) {
         return;
       }
+      if (onBeforeSubmit && !(await onBeforeSubmit())) {
+        return;
+      }
       const composer = aui.composer();
 
       composer.setText(text);
@@ -198,7 +203,7 @@ export function AssistantComposer({
         throw error;
       }
     },
-    [aui, mentionedFiles, t],
+    [aui, mentionedFiles, onBeforeSubmit, t],
   );
 
   const handleAttachmentError = useCallback(

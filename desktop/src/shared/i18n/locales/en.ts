@@ -60,12 +60,22 @@ export const en = {
       backgroundChatCompleted: "Background chat completed",
       backgroundChatNeedsInput: "Background chat needs input",
       backgroundChatStatus: "Background chat status",
+      creationLocationProject: "Project",
+      creationLocationSelect: "Create in",
+      creationLocationWorktree: "Worktree",
       newChat: "New chat",
       newChatInProject: "New chat in {{projectName}}",
       newProject: "New project",
       noProject: "No project",
       projectSelect: "Project",
       settings: "Settings",
+      worktreeDirtyContinue: "Continue",
+      worktreeDirtyDescription:
+        "The selected project has uncommitted changes. The new worktree will be created from the current HEAD, so those changes will not be included.",
+      worktreeDirtyRemember: "Do not warn me again",
+      worktreeDirtyTitle: "Create worktree from dirty repository?",
+      worktreeNotGitRepository:
+        "This project is no longer available as a git repository.",
     },
     sidebar: {
       addProject: "Add project",
@@ -138,8 +148,16 @@ export const en = {
         agents: "Agents",
         appearance: "Appearance",
         danger: "Advanced",
+        workspace: "Workspace",
       },
       title: "Settings",
+      workspace: {
+        dirtyPromptDescription:
+          "Ask before creating a worktree when the selected project has uncommitted changes.",
+        dirtyPromptSwitchLabel:
+          "Warn before creating worktrees from dirty repositories",
+        dirtyPromptTitle: "Dirty repository warning",
+      },
     },
     updates: {
       checkFailed: "Could not check for updates",

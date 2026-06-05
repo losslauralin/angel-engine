@@ -4,7 +4,12 @@ import type {
   ExternalStoreAdapter,
   ThreadMessage,
 } from "@assistant-ui/react";
-import type { Chat, ChatHistoryMessage, ChatRuntimeConfig } from "@shared/chat";
+import type {
+  Chat,
+  ChatCreationLocation,
+  ChatHistoryMessage,
+  ChatRuntimeConfig,
+} from "@shared/chat";
 import type { EngineMessage } from "@/features/chat/state/chat-run-store";
 
 import { useExternalStoreRuntime } from "@assistant-ui/react";
@@ -22,6 +27,7 @@ type EngineRuntimeAdapters = NonNullable<
 export interface EngineRuntimeOptions {
   adapters: EngineRuntimeAdapters;
   chatId?: string;
+  creationLocation?: ChatCreationLocation;
   historyMessages: ChatHistoryMessage[];
   historyRevision: number;
   model?: string;
@@ -49,6 +55,7 @@ export interface EngineRuntimeOptions {
 export function useEngineRuntime({
   adapters,
   chatId,
+  creationLocation,
   historyMessages,
   historyRevision,
   model,
@@ -74,6 +81,7 @@ export function useEngineRuntime({
   );
   const latestOptionsRef = useRef({
     chatId,
+    creationLocation,
     model,
     mode,
     onChatCreated,
@@ -88,6 +96,7 @@ export function useEngineRuntime({
 
   latestOptionsRef.current = {
     chatId,
+    creationLocation,
     model,
     mode,
     onChatCreated,
@@ -141,6 +150,7 @@ export function useEngineRuntime({
         },
         input: {
           chatId: latestOptionsRef.current.chatId,
+          creationLocation: latestOptionsRef.current.creationLocation,
           model: latestOptionsRef.current.model,
           mode: modeOverride ?? latestOptionsRef.current.mode,
           permissionMode: latestOptionsRef.current.permissionMode,

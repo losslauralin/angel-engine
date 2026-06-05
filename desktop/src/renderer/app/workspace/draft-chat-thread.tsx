@@ -1,6 +1,11 @@
 import type { AgentRuntime } from "@shared/agents";
-import type { Chat, ChatRuntimeConfig } from "@shared/chat";
+import type {
+  Chat,
+  ChatCreationLocation,
+  ChatRuntimeConfig,
+} from "@shared/chat";
 import type { Project } from "@shared/projects";
+import type { ReactNode } from "react";
 import type {
   ChatRunOrigin,
   ChatMessagesUpdateHandler,
@@ -15,11 +20,14 @@ import { EMPTY_MESSAGES } from "./workspace-thread-types";
 
 interface DraftChatThreadProps {
   chatOptions: ChatOptionsContextValue;
+  creationLocation?: ChatCreationLocation;
+  creationLocationAccessory?: ReactNode;
   model?: string;
   mode?: string;
   onChatCreated: ChatUpdateHandler;
   onChatMessagesUpdated: ChatMessagesUpdateHandler;
   onChatUpdated: ChatUpdateHandler;
+  onBeforeSubmit?: () => boolean | Promise<boolean>;
   onCreateProject: () => Project | undefined | Promise<Project | undefined>;
   onProjectChange: (projectId: string | null) => void;
   permissionMode?: string;
@@ -37,11 +45,14 @@ interface DraftChatThreadProps {
 
 export function DraftChatThread({
   chatOptions,
+  creationLocation,
+  creationLocationAccessory,
   model,
   mode,
   onChatCreated,
   onChatMessagesUpdated,
   onChatUpdated,
+  onBeforeSubmit,
   onCreateProject,
   onProjectChange,
   permissionMode,
@@ -68,6 +79,7 @@ export function DraftChatThread({
       <AppRuntimeProvider
         historyMessages={EMPTY_MESSAGES}
         historyRevision={0}
+        creationLocation={creationLocation}
         model={model}
         mode={mode}
         onChatCreated={handleChatCreated}
@@ -84,13 +96,17 @@ export function DraftChatThread({
       >
         <AssistantThread
           composerFloatingAccessory={
-            <DraftProjectSelect
-              onCreateProject={onCreateProject}
-              onProjectChange={onProjectChange}
-              projects={projects}
-              selectedProjectId={projectId}
-            />
+            <div className="flex items-center gap-1.5">
+              <DraftProjectSelect
+                onCreateProject={onCreateProject}
+                onProjectChange={onProjectChange}
+                projects={projects}
+                selectedProjectId={projectId}
+              />
+              {creationLocationAccessory}
+            </div>
           }
+          onBeforeSubmit={onBeforeSubmit}
           projectName={projectName}
         />
       </AppRuntimeProvider>

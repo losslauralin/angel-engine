@@ -1,6 +1,7 @@
 import type { ProjectFileSearchInput } from "../../../shared/chat";
 import type {
   CreateProjectInput,
+  ProjectGitStatusInput,
   UpdateProjectInput,
 } from "../../../shared/projects";
 import { tipc } from "@egoist/tipc/main";
@@ -9,6 +10,7 @@ import { type as arkType } from "arktype";
 import { BrowserWindow, dialog, Menu, shell } from "electron";
 import { translate } from "../../platform/i18n";
 import { searchProjectFiles } from "./file-search";
+import { projectGitStatus } from "./git";
 import {
   createProject,
   deleteProject,
@@ -19,6 +21,7 @@ import {
 import {
   createProjectInput,
   projectFileSearchInput,
+  projectGitStatusInput,
   updateProjectInput,
 } from "./schemas";
 
@@ -33,6 +36,16 @@ export const projectIpcRouter = {
 
     return result.canceled ? null : result.filePaths[0];
   }),
+
+  projectsGitStatus: t.procedure
+    .input<ProjectGitStatusInput>()
+    .action(async ({ input }) => {
+      const value = projectGitStatusInput(input);
+      if (value instanceof arkType.errors) {
+        throw new TypeError("Project input is required.");
+      }
+      return projectGitStatus({ projectId: value.projectId });
+    }),
 
   projectsCreate: t.procedure
     .input<CreateProjectInput>()

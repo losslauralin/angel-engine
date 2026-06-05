@@ -56,6 +56,7 @@ export function createChatIpcRouter(runtime: ChatRuntime) {
         }
 
         return runtime.createChatFromInput({
+          creationLocation: value.creationLocation,
           model: value.model,
           projectId: value.projectId,
           mode: value.mode,
@@ -97,6 +98,7 @@ export function createChatIpcRouter(runtime: ChatRuntime) {
           throw new TypeError("Chat prewarm input is required.");
         }
         return runtime.prewarmChat({
+          creationLocation: value.creationLocation,
           projectId: value.projectId,
           runtime: value.runtime ?? undefined,
         });
@@ -219,6 +221,7 @@ export function createChatIpcRouter(runtime: ChatRuntime) {
       return runtime.sendChat({
         attachments: normalizeChatAttachmentsInput(value.attachments),
         chatId: value.chatId,
+        creationLocation: value.creationLocation,
         model: value.model,
         projectId: value.projectId,
         mode: value.mode,

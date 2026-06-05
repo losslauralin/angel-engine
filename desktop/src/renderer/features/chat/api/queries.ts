@@ -1,5 +1,6 @@
 import type {
   Chat,
+  ChatCreationLocation,
   ChatCreateInput,
   ChatLoadResult,
   ChatPrewarmResult,
@@ -34,6 +35,7 @@ interface ChatRuntimeConfigQueryParams {
 
 interface ChatPrewarmQueryParams {
   api: ApiClient;
+  creationLocation?: ChatCreationLocation | null;
   enabled?: boolean;
   projectId?: string | null;
   runtime?: string | null;
@@ -157,20 +159,29 @@ export function chatRuntimeConfigQueryOptions({
 
 export function chatPrewarmQueryOptions({
   api,
+  creationLocation,
   enabled = true,
   projectId,
   runtime,
   staleTime = 0,
 }: ChatPrewarmQueryParams) {
+  const normalizedCreationLocation = creationLocation ?? "project";
+
   return queryOptions({
-    enabled: enabled && Boolean(runtime),
+    enabled:
+      enabled && normalizedCreationLocation !== "worktree" && Boolean(runtime),
     gcTime: 300_000,
     queryFn: async (): Promise<ChatPrewarmResult> =>
       api.chats.prewarm({
+        creationLocation: normalizedCreationLocation,
         projectId: projectId ?? undefined,
         runtime: runtime ?? undefined,
       }),
-    queryKey: queryKeys.chats.prewarm(runtime ?? null, projectId ?? null),
+    queryKey: queryKeys.chats.prewarm(
+      runtime ?? null,
+      projectId ?? null,
+      normalizedCreationLocation,
+    ),
     retry: false,
     staleTime,
   });

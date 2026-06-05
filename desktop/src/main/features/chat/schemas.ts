@@ -17,6 +17,7 @@ export const chatStreamStartInput = type({
   input: {
     attachments: "unknown",
     "chatId?": "string > 0 | undefined",
+    "creationLocation?": "'project' | 'worktree' | undefined",
     "model?": "string > 0 | undefined",
     "mode?": "string > 0 | undefined",
     "permissionMode?": "string > 0 | undefined",
@@ -38,6 +39,7 @@ export const chatStreamElicitationResolveInput = type({
 // Input parser schemas
 export const chatCreateInput = type({
   "+": "ignore",
+  "creationLocation?": "'project' | 'worktree' | undefined",
   "model?": "string > 0 | undefined",
   "mode?": "string > 0 | undefined",
   "permissionMode?": "string > 0 | undefined",
@@ -49,6 +51,7 @@ export const chatCreateInput = type({
 
 export const chatPrewarmInput = type({
   "+": "ignore",
+  "creationLocation?": "'project' | 'worktree' | undefined",
   "projectId?": "string > 0 | undefined",
   "runtime?": "string > 0 | undefined",
 });
@@ -69,6 +72,7 @@ export const chatSendInput = type({
   "+": "ignore",
   "attachments?": "unknown | undefined",
   "chatId?": "string > 0 | undefined",
+  "creationLocation?": "'project' | 'worktree' | undefined",
   "model?": "string > 0 | undefined",
   "mode?": "string > 0 | undefined",
   "permissionMode?": "string > 0 | undefined",

@@ -46,11 +46,12 @@ import { languageOptions } from "@/i18n";
 import { queryKeys } from "@/platform/query-keys";
 import { cn } from "@/platform/utils";
 
-type SettingsTab = "agents" | "appearance" | "danger";
+type SettingsTab = "agents" | "appearance" | "workspace" | "danger";
 
 const settingsTabs: Array<{ id: SettingsTab; labelKey: string }> = [
   { id: "agents", labelKey: "settings.tabs.agents" },
   { id: "appearance", labelKey: "settings.tabs.appearance" },
+  { id: "workspace", labelKey: "settings.tabs.workspace" },
   { id: "danger", labelKey: "settings.tabs.danger" },
 ];
 
@@ -95,6 +96,12 @@ export function SettingsPage({
   const [themeMode, setThemeMode] = useThemeSettings();
   const language = useSettingsStore((state) => state.language);
   const setLanguage = useSettingsStore((state) => state.setLanguage);
+  const worktreeDirtyPromptEnabled = useSettingsStore(
+    (state) => state.worktreeDirtyPromptEnabled,
+  );
+  const setWorktreeDirtyPromptEnabled = useSettingsStore(
+    (state) => state.setWorktreeDirtyPromptEnabled,
+  );
   const customAgents = useSettingsStore((state) => state.customAgents);
   const createCustomAgent = useSettingsStore(
     (state) => state.createCustomAgent,
@@ -347,6 +354,30 @@ export function SettingsPage({
                     />
                   }
                   title={t("settings.appearance.language")}
+                />
+              </SettingsGroup>
+            </div>
+          ) : null}
+
+          {activeTab === "workspace" ? (
+            <div
+              aria-labelledby={`${tabPanelId}-workspace-tab`}
+              id={`${tabPanelId}-workspace`}
+              role="tabpanel"
+            >
+              <SettingsGroup>
+                <SettingsRow
+                  after={
+                    <Switch
+                      aria-label={t(
+                        "settings.workspace.dirtyPromptSwitchLabel",
+                      )}
+                      checked={worktreeDirtyPromptEnabled}
+                      onCheckedChange={setWorktreeDirtyPromptEnabled}
+                    />
+                  }
+                  description={t("settings.workspace.dirtyPromptDescription")}
+                  title={t("settings.workspace.dirtyPromptTitle")}
                 />
               </SettingsGroup>
             </div>

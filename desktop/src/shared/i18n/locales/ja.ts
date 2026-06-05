@@ -60,12 +60,22 @@ export const ja = {
       backgroundChatCompleted: "バックグラウンドチャットが完了しました",
       backgroundChatNeedsInput: "バックグラウンドチャットに入力が必要です",
       backgroundChatStatus: "バックグラウンドチャットの状態",
+      creationLocationProject: "プロジェクト",
+      creationLocationSelect: "作成先",
+      creationLocationWorktree: "Worktree",
       newChat: "新しいチャット",
       newChatInProject: "{{projectName}} の新しいチャット",
       newProject: "新しいプロジェクト",
       noProject: "プロジェクトなし",
       projectSelect: "プロジェクト",
       settings: "設定",
+      worktreeDirtyContinue: "続行",
+      worktreeDirtyDescription:
+        "選択したプロジェクトには未コミットの変更があります。新しい worktree は現在の HEAD から作成されるため、それらの変更は含まれません。",
+      worktreeDirtyRemember: "今後表示しない",
+      worktreeDirtyTitle: "dirty リポジトリから worktree を作成しますか？",
+      worktreeNotGitRepository:
+        "このプロジェクトは Git リポジトリとして利用できません。",
     },
     sidebar: {
       addProject: "プロジェクトを追加",
@@ -140,8 +150,16 @@ export const ja = {
         agents: "Agents",
         appearance: "外観",
         danger: "詳細",
+        workspace: "ワークスペース",
       },
       title: "設定",
+      workspace: {
+        dirtyPromptDescription:
+          "選択したプロジェクトに未コミットの変更がある場合、worktree 作成前に確認します。",
+        dirtyPromptSwitchLabel:
+          "dirty リポジトリから worktree を作成する前に警告する",
+        dirtyPromptTitle: "dirty リポジトリ警告",
+      },
     },
     updates: {
       checkFailed: "アップデートを確認できませんでした",

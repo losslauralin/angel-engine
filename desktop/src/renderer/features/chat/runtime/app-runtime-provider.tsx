@@ -5,7 +5,12 @@ import type {
   PendingAttachment,
   SpeechSynthesisAdapter,
 } from "@assistant-ui/react";
-import type { Chat, ChatHistoryMessage, ChatRuntimeConfig } from "@shared/chat";
+import type {
+  Chat,
+  ChatCreationLocation,
+  ChatHistoryMessage,
+  ChatRuntimeConfig,
+} from "@shared/chat";
 import type { ReactNode } from "react";
 
 import {
@@ -21,6 +26,7 @@ import { useEngineRuntime } from "@/features/chat/runtime/engine-model-adapter";
 interface AppRuntimeProviderProps {
   chatId?: string;
   children: ReactNode;
+  creationLocation?: ChatCreationLocation;
   historyMessages: ChatHistoryMessage[];
   historyRevision: number;
   model?: string;
@@ -59,6 +65,7 @@ const mockFeedbackAdapter: FeedbackAdapter = {
 export function AppRuntimeProvider({
   chatId,
   children,
+  creationLocation,
   historyMessages,
   historyRevision,
   model,
@@ -90,6 +97,7 @@ export function AppRuntimeProvider({
   const assistantRuntime = useEngineRuntime({
     adapters,
     chatId,
+    creationLocation,
     historyMessages,
     historyRevision,
     model,

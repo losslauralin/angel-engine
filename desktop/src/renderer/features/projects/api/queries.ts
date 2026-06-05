@@ -1,4 +1,4 @@
-import type { Project } from "@shared/projects";
+import type { Project, ProjectGitStatusResult } from "@shared/projects";
 import type { ProjectFileSearchResult } from "@shared/chat";
 
 import type { QueryClient } from "@tanstack/react-query";
@@ -19,6 +19,13 @@ interface ProjectFileSearchQueryParams {
   limit?: number;
   query: string;
   root: string;
+  staleTime?: number;
+}
+
+interface ProjectGitStatusQueryParams {
+  api: ApiClient;
+  enabled?: boolean;
+  projectId?: string | null;
   staleTime?: number;
 }
 
@@ -71,6 +78,26 @@ export function projectFileSearchQueryOptions({
         root,
       }),
     queryKey: queryKeys.projects.fileSearch(root, query, limit),
+    retry: false,
+    staleTime,
+  });
+}
+
+export function projectGitStatusQueryOptions({
+  api,
+  enabled = true,
+  projectId,
+  staleTime = 30_000,
+}: ProjectGitStatusQueryParams) {
+  return queryOptions({
+    enabled: enabled && Boolean(projectId),
+    queryFn: async (): Promise<ProjectGitStatusResult> => {
+      if (!projectId) {
+        throw new Error("No project selected");
+      }
+      return api.projects.gitStatus({ projectId });
+    },
+    queryKey: queryKeys.projects.gitStatus(projectId ?? null),
     retry: false,
     staleTime,
   });

@@ -82,6 +82,7 @@ type ChatThreadRuntimeProps = ActiveChatThreadProps & {
 
 interface ChatProjectContext {
   id?: string;
+  isWorktree?: boolean;
   name?: string;
   path?: string;
   project?: Project;
@@ -396,6 +397,7 @@ function ChatThreadRuntime({
           composerFloatingAccessory={
             projectContext.name ? (
               <ReadonlyProjectLabel
+                labelSuffix={projectContext.isWorktree ? "worktree" : undefined}
                 projectName={projectContext.name}
                 projectPath={projectContext.path}
               />
@@ -478,15 +480,23 @@ function chatProjectContext(
     projectId !== undefined
       ? projects.find((item) => item.id === projectId)
       : undefined;
-  const path =
-    project?.path ??
-    (projectId !== undefined ? (chat.cwd ?? undefined) : undefined);
+  const projectPath = project?.path;
+  const chatPath = chat.cwd ?? undefined;
+  const isWorktree =
+    projectPath !== undefined &&
+    chatPath !== undefined &&
+    chatPath !== projectPath;
+  const path = isWorktree
+    ? chatPath
+    : (projectPath ?? (projectId !== undefined ? chatPath : undefined));
+  const displayPath = isWorktree ? projectPath : path;
 
   return {
     id: projectId,
+    isWorktree,
     name:
-      path !== undefined && path.length > 0
-        ? getProjectDisplayName(path)
+      displayPath !== undefined && displayPath.length > 0
+        ? getProjectDisplayName(displayPath)
         : undefined,
     path,
     project,

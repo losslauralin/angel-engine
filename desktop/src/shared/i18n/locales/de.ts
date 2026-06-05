@@ -60,12 +60,22 @@ export const de = {
       backgroundChatCompleted: "Hintergrundchat abgeschlossen",
       backgroundChatNeedsInput: "Hintergrundchat benötigt Eingabe",
       backgroundChatStatus: "Status des Hintergrundchats",
+      creationLocationProject: "Projekt",
+      creationLocationSelect: "Erstellen in",
+      creationLocationWorktree: "Worktree",
       newChat: "Neuer Chat",
       newChatInProject: "Neuer Chat in {{projectName}}",
       newProject: "Neues Projekt",
       noProject: "Kein Projekt",
       projectSelect: "Projekt",
       settings: "Einstellungen",
+      worktreeDirtyContinue: "Fortfahren",
+      worktreeDirtyDescription:
+        "Das ausgewählte Projekt hat nicht übernommene Änderungen. Der neue Worktree wird aus dem aktuellen HEAD erstellt und enthält diese Änderungen nicht.",
+      worktreeDirtyRemember: "Nicht erneut warnen",
+      worktreeDirtyTitle: "Worktree aus dirty Repository erstellen?",
+      worktreeNotGitRepository:
+        "Dieses Projekt ist nicht mehr als Git-Repository verfügbar.",
     },
     sidebar: {
       addProject: "Projekt hinzufügen",
@@ -139,8 +149,15 @@ export const de = {
         agents: "Agents",
         appearance: "Darstellung",
         danger: "Erweitert",
+        workspace: "Arbeitsbereich",
       },
       title: "Einstellungen",
+      workspace: {
+        dirtyPromptDescription:
+          "Vor dem Erstellen eines Worktrees nachfragen, wenn das ausgewählte Projekt nicht übernommene Änderungen hat.",
+        dirtyPromptSwitchLabel: "Vor Worktrees aus dirty Repositories warnen",
+        dirtyPromptTitle: "Dirty-Repository-Warnung",
+      },
     },
     updates: {
       checkFailed: "Updates konnten nicht gesucht werden",

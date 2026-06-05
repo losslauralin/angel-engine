@@ -1,11 +1,12 @@
 import type { AgentRuntime, AgentRuntimePreference } from "@shared/agents";
 import type {
   Chat,
+  ChatCreationLocation,
   ChatHistoryMessage,
   ChatLoadResult,
   ChatRuntimeConfig,
 } from "@shared/chat";
-import type { Project } from "@shared/projects";
+import type { Project, ProjectGitStatusResult } from "@shared/projects";
 import type {
   ChatRunOrigin,
   DraftAgentConfig,
@@ -31,6 +32,7 @@ import { useTranslation } from "react-i18next";
 import { Redirect, useLocation } from "wouter";
 import { ChatRestoreLoading } from "@/app/workspace/chat-restore-loading";
 import { DraftChatThread } from "@/app/workspace/draft-chat-thread";
+import { DraftCreationLocationSelect } from "@/app/workspace/draft-project-select";
 import { useDraftChatOptions } from "@/app/workspace/use-draft-chat-options";
 import { useDraftProjectContext } from "@/app/workspace/use-draft-project-context";
 import {
@@ -68,12 +70,22 @@ import {
   SidebarProvider,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
 import {
   archiveChatMutationOptions,
   chatContextMenuMutationOptions,
   chatListQueryOptions,
   chatPrewarmQueryOptions,
+  chatRuntimeConfigQueryOptions,
   deleteAllChatsMutationOptions,
   renameChatMutationOptions,
   setChatRuntimeMutationOptions,
@@ -94,6 +106,7 @@ import {
 import {
   createProjectMutationOptions,
   projectContextMenuMutationOptions,
+  projectGitStatusQueryOptions,
   projectListQueryOptions,
 } from "@/features/projects/api/queries";
 import { SettingsPage } from "@/features/settings/settings-page";
@@ -112,6 +125,11 @@ interface WorkspacePageContentProps {
   routeProjectId?: string;
   selectedChatId?: string;
   settingsActive?: boolean;
+}
+
+interface WorktreeDirtyPromptState {
+  resolve: (confirmed: boolean) => void;
+  status: ProjectGitStatusResult;
 }
 
 export function WorkspaceDraftPage({ projectId }: { projectId?: string }) {
@@ -183,9 +201,16 @@ function WorkspacePageContent({
   const sidebarOpenMobile = useWorkspaceUiStore(
     (state) => state.sidebarOpenMobile,
   );
+  const workspaceMode = useWorkspaceUiStore((state) => state.workspaceMode);
   const setSidebarOpen = useWorkspaceUiStore((state) => state.setSidebarOpen);
   const setSidebarOpenMobile = useWorkspaceUiStore(
     (state) => state.setSidebarOpenMobile,
+  );
+  const worktreeDirtyPromptEnabled = useSettingsStore(
+    (state) => state.worktreeDirtyPromptEnabled,
+  );
+  const setWorktreeDirtyPromptEnabled = useSettingsStore(
+    (state) => state.setWorktreeDirtyPromptEnabled,
   );
   const enabledAgentOptions = useMemo(
     () => getEnabledAgentOptions(agentSettings, availableAgentOptions),
@@ -205,9 +230,16 @@ function WorkspacePageContent({
   const [draftAgentConfigs, setDraftAgentConfigs] = useState<
     Partial<Record<string, DraftAgentConfig>>
   >({});
+  const [draftCreationLocations, setDraftCreationLocations] = useState<
+    Partial<Record<string, ChatCreationLocation>>
+  >({});
   const [draftSessionIds, setDraftSessionIds] = useState<
     Partial<Record<string, number>>
   >({});
+  const [worktreeDirtyPrompt, setWorktreeDirtyPrompt] =
+    useState<WorktreeDirtyPromptState | null>(null);
+  const [rememberWorktreeDirtyChoice, setRememberWorktreeDirtyChoice] =
+    useState(false);
   const draftSessionCounterRef = useRef(0);
   const [renameChatId, setRenameChatId] = useState<string | null>(null);
   const isDraftPage = !selectedChatId && !settingsActive;
@@ -256,6 +288,9 @@ function WorkspacePageContent({
   const draftRuntimeKey = isDraftPage
     ? draftRuntimeKeyFromProjectId(routeDraftProjectId)
     : undefined;
+  const draftCreationLocationKey = draftRuntimeKey ?? "standalone";
+  const requestedDraftCreationLocation =
+    draftCreationLocations[draftCreationLocationKey] ?? "project";
   const runtimePageKey = workspaceRuntimePageKey({
     chatRuntime,
     draftProjectId: routeDraftProjectId,
@@ -277,17 +312,54 @@ function WorkspacePageContent({
         availableAgentOptions,
       );
   const activeRuntime = chatRuntime ?? draftRuntime;
+  const draftProjectGitStatusQuery = useQuery({
+    ...projectGitStatusQueryOptions({
+      api,
+      enabled:
+        isDraftPage &&
+        workspaceMode === "work" &&
+        draftProject.id !== undefined,
+      projectId: draftProject.id,
+    }),
+  });
+  const canCreateDraftWorktree =
+    isDraftPage &&
+    workspaceMode === "work" &&
+    draftProjectGitStatusQuery.data?.isGitRepository === true;
+  const draftCreationLocation: ChatCreationLocation = canCreateDraftWorktree
+    ? requestedDraftCreationLocation
+    : "project";
   const shouldPrewarmChat =
     isDraftPage && (!routeDraftProjectId || Boolean(draftProject.path));
   const prewarmQuery = useQuery({
     ...chatPrewarmQueryOptions({
       api,
-      enabled: shouldPrewarmChat,
+      creationLocation: draftCreationLocation,
+      enabled: shouldPrewarmChat && draftCreationLocation !== "worktree",
       projectId: draftProject.id,
       runtime: activeRuntime,
     }),
   });
-  const runtimeConfig = prewarmQuery.data?.config;
+  const shouldInspectDraftRuntimeConfig =
+    isDraftPage &&
+    draftCreationLocation === "worktree" &&
+    draftProject.path !== undefined;
+  const draftRuntimeConfigQuery = useQuery({
+    ...chatRuntimeConfigQueryOptions({
+      api,
+      cwd: draftProject.path,
+      enabled: shouldInspectDraftRuntimeConfig,
+      runtime: activeRuntime,
+    }),
+  });
+  const runtimeConfig =
+    draftCreationLocation === "worktree"
+      ? draftRuntimeConfigQuery.data
+      : prewarmQuery.data?.config;
+  const runtimeConfigLoading =
+    draftCreationLocation === "worktree"
+      ? draftRuntimeConfigQuery.isFetching
+      : prewarmQuery.isFetching;
   const {
     chatOptions,
     draftAgentConfig,
@@ -300,7 +372,7 @@ function WorkspacePageContent({
   } = useDraftChatOptions({
     activeRuntime,
     agentSettings,
-    configLoading: prewarmQuery.isFetching,
+    configLoading: runtimeConfigLoading,
     draftAgentConfigs,
     draftRuntimeKey,
     runtimeConfig,
@@ -742,6 +814,91 @@ function WorkspacePageContent({
     [navigateToDraft],
   );
 
+  const setDraftCreationLocation = useCallback(
+    (creationLocation: ChatCreationLocation) => {
+      setDraftCreationLocations((current) =>
+        current[draftCreationLocationKey] === creationLocation
+          ? current
+          : {
+              ...current,
+              [draftCreationLocationKey]: creationLocation,
+            },
+      );
+    },
+    [draftCreationLocationKey],
+  );
+
+  const confirmDirtyWorktree = useCallback(
+    (status: ProjectGitStatusResult) =>
+      new Promise<boolean>((resolve) => {
+        setRememberWorktreeDirtyChoice(false);
+        setWorktreeDirtyPrompt({ resolve, status });
+      }),
+    [],
+  );
+
+  const closeWorktreeDirtyPrompt = useCallback(
+    (confirmed: boolean) => {
+      if (!worktreeDirtyPrompt) return;
+
+      if (confirmed && rememberWorktreeDirtyChoice) {
+        setWorktreeDirtyPromptEnabled(false);
+      }
+      const { resolve } = worktreeDirtyPrompt;
+      setWorktreeDirtyPrompt(null);
+      setRememberWorktreeDirtyChoice(false);
+      resolve(confirmed);
+    },
+    [
+      rememberWorktreeDirtyChoice,
+      setWorktreeDirtyPromptEnabled,
+      worktreeDirtyPrompt,
+    ],
+  );
+
+  const ensureDraftChatCanSubmit = useCallback(async () => {
+    if (draftCreationLocation !== "worktree") return true;
+    if (!draftProject.id) return false;
+
+    try {
+      const status = await api.projects.gitStatus({
+        projectId: draftProject.id,
+      });
+      queryClient.setQueryData(
+        queryKeys.projects.gitStatus(draftProject.id),
+        status,
+      );
+
+      if (!status.isGitRepository) {
+        toast({
+          description: t("workspace.worktreeNotGitRepository"),
+          title: t("notifications.projectActionFailed"),
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      if (!status.isDirty || !worktreeDirtyPromptEnabled) return true;
+      return confirmDirtyWorktree(status);
+    } catch (error) {
+      toast({
+        description: getErrorMessage(error),
+        title: t("notifications.projectActionFailed"),
+        variant: "destructive",
+      });
+      return false;
+    }
+  }, [
+    api,
+    confirmDirtyWorktree,
+    draftCreationLocation,
+    draftProject.id,
+    queryClient,
+    t,
+    toast,
+    worktreeDirtyPromptEnabled,
+  ]);
+
   const openSettings = useCallback(() => {
     window.desktopWindow.openSettings();
   }, []);
@@ -827,6 +984,12 @@ function WorkspacePageContent({
           onClose={closeRenameChatDialog}
           onRename={renameChat}
         />
+        <WorktreeDirtyDialog
+          checked={rememberWorktreeDirtyChoice}
+          onCheckedChange={setRememberWorktreeDirtyChoice}
+          onClose={closeWorktreeDirtyPrompt}
+          state={worktreeDirtyPrompt}
+        />
 
         {settingsActive ? (
           <SidebarInset className="h-svh max-h-svh overflow-hidden">
@@ -883,16 +1046,30 @@ function WorkspacePageContent({
                 ) : (
                   <DraftChatThread
                     chatOptions={chatOptions}
+                    creationLocation={draftCreationLocation}
+                    creationLocationAccessory={
+                      canCreateDraftWorktree ? (
+                        <DraftCreationLocationSelect
+                          onValueChange={setDraftCreationLocation}
+                          value={draftCreationLocation}
+                        />
+                      ) : undefined
+                    }
                     key={runtimePageKey}
                     model={modelOverride}
                     mode={modeOverride}
+                    onBeforeSubmit={ensureDraftChatCanSubmit}
                     onChatCreated={updateChatFromRun}
                     onChatMessagesUpdated={setChatMessagesInCache}
                     onChatUpdated={updateChatFromRun}
                     onCreateProject={createProjectFromPicker}
                     onProjectChange={selectDraftProject}
                     permissionMode={permissionModeOverride}
-                    prewarmId={prewarmQuery.data?.prewarmId}
+                    prewarmId={
+                      draftCreationLocation === "worktree"
+                        ? undefined
+                        : prewarmQuery.data?.prewarmId
+                    }
                     projectId={draftProject.id}
                     projectName={selectedProjectName}
                     projectPath={draftProject.path}
@@ -920,6 +1097,71 @@ function WorkspacePageContent({
         )}
       </WorkspaceSidebarControlPortalProvider>
     </SidebarProvider>
+  );
+}
+
+function WorktreeDirtyDialog({
+  checked,
+  onCheckedChange,
+  onClose,
+  state,
+}: {
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+  onClose: (confirmed: boolean) => void;
+  state: WorktreeDirtyPromptState | null;
+}) {
+  const { t } = useTranslation();
+  const projectPath = state?.status.path;
+
+  return (
+    <Dialog
+      open={state !== null}
+      onOpenChange={(open) => {
+        if (!open) onClose(false);
+      }}
+    >
+      <DialogContent showCloseButton={false}>
+        <DialogHeader>
+          <DialogTitle>{t("workspace.worktreeDirtyTitle")}</DialogTitle>
+          <DialogDescription>
+            {t("workspace.worktreeDirtyDescription")}
+          </DialogDescription>
+        </DialogHeader>
+        {projectPath ? (
+          <div
+            className="
+              min-w-0 rounded-md border bg-muted/35 px-3 py-2 text-xs
+              text-muted-foreground
+            "
+            title={projectPath}
+          >
+            <span className="block truncate">{projectPath}</span>
+          </div>
+        ) : null}
+        <label className="flex items-center gap-2 text-sm text-foreground">
+          <input
+            checked={checked}
+            className="size-4 accent-primary"
+            onChange={(event) => onCheckedChange(event.currentTarget.checked)}
+            type="checkbox"
+          />
+          <span>{t("workspace.worktreeDirtyRemember")}</span>
+        </label>
+        <DialogFooter>
+          <Button
+            onClick={() => onClose(false)}
+            type="button"
+            variant="outline"
+          >
+            {t("common.cancel")}
+          </Button>
+          <Button onClick={() => onClose(true)} type="button">
+            {t("workspace.worktreeDirtyContinue")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
