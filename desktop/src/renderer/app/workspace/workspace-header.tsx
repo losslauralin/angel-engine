@@ -1,15 +1,27 @@
 import type { ChatAttentionState } from "@/features/chat/state/chat-run-store";
 
+import {
+  RiSidebarFoldLine as SidebarFold,
+  RiSidebarUnfoldLine as SidebarUnfold,
+} from "@remixicon/react";
 import { useTranslation } from "react-i18next";
 import { WorkspaceSidebarControlTarget } from "@/app/workspace/workspace-sidebar-control";
+import { Button } from "@/components/ui/button";
 import { useSidebar } from "@/components/ui/sidebar";
 
 interface WorkspaceHeaderProps {
   attention?: ChatAttentionState;
+  onToggleRightSidebar?: () => void;
+  rightSidebarOpen?: boolean;
   title: string;
 }
 
-export function WorkspaceHeader({ attention, title }: WorkspaceHeaderProps) {
+export function WorkspaceHeader({
+  attention,
+  onToggleRightSidebar,
+  rightSidebarOpen = false,
+  title,
+}: WorkspaceHeaderProps) {
   const { t } = useTranslation();
   const { isMobile, state } = useSidebar();
   const showAttention = Boolean(attention?.needsInput || attention?.completed);
@@ -66,6 +78,24 @@ export function WorkspaceHeader({ attention, title }: WorkspaceHeaderProps) {
             />
           ) : null}
         </span>
+      ) : null}
+      {onToggleRightSidebar ? (
+        <Button
+          aria-label={t("sidebar.toggleSidebar")}
+          className="text-muted-foreground"
+          data-electron-no-drag
+          onClick={onToggleRightSidebar}
+          size="icon-sm"
+          title={t("sidebar.toggleSidebar")}
+          type="button"
+          variant="ghost"
+        >
+          {rightSidebarOpen ? (
+            <SidebarFold className="scale-x-[-1]" />
+          ) : (
+            <SidebarUnfold className="scale-x-[-1]" />
+          )}
+        </Button>
       ) : null}
     </header>
   );

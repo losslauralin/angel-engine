@@ -2,6 +2,16 @@ import { create } from "zustand";
 
 export type WorkspaceMode = "chat" | "work";
 
+export type WorkspaceRightSidebarTab = "browser" | "files" | "git" | "terminal";
+
+const workspaceModeStorageKey = "angel-engine.workspace-mode";
+const rightSidebarWidthStorageKey = "angel-engine.right-sidebar-width";
+const defaultRightSidebarWidth = 288;
+const minRightSidebarWidth = 240;
+const maxRightSidebarWidth = 520;
+const initialWorkspaceMode = readWorkspaceMode();
+const initialRightSidebarWidth = readRightSidebarWidth();
+
 export type SidebarChatDateGroupKey =
   | "dayBeforeYesterday"
   | "older"
@@ -13,6 +23,14 @@ export type SidebarChatDateGroupKey =
 interface WorkspaceUiState {
   collapsedChatDateGroupKeys: Set<SidebarChatDateGroupKey>;
   expandedProjectIds: Set<string>;
+  rightSidebarActiveTab: WorkspaceRightSidebarTab;
+  rightSidebarOpen: boolean;
+  rightSidebarWidth: number;
+  setRightSidebarActiveTab: (
+    rightSidebarActiveTab: WorkspaceRightSidebarTab,
+  ) => void;
+  setRightSidebarOpen: (rightSidebarOpen: boolean) => void;
+  setRightSidebarWidth: (rightSidebarWidth: number) => void;
   setSidebarOpen: (sidebarOpen: boolean) => void;
   setSidebarOpenMobile: (sidebarOpenMobile: boolean) => void;
   setWorkspaceMode: (workspaceMode: WorkspaceMode) => void;
@@ -20,6 +38,7 @@ interface WorkspaceUiState {
   sidebarOpenMobile: boolean;
   sidebarProjectIds: Set<string>;
   syncSidebarProjects: (projectIds: string[]) => void;
+  toggleRightSidebar: () => void;
   toggleSidebarChatDateGroup: (groupKey: SidebarChatDateGroupKey) => void;
   toggleSidebarProject: (projectId: string) => void;
   workspaceMode: WorkspaceMode;
@@ -28,9 +47,25 @@ interface WorkspaceUiState {
 export const useWorkspaceUiStore = create<WorkspaceUiState>()((set) => ({
   collapsedChatDateGroupKeys: new Set(),
   expandedProjectIds: new Set(),
+  rightSidebarActiveTab: "files",
+  rightSidebarOpen: initialWorkspaceMode === "work",
+  rightSidebarWidth: initialRightSidebarWidth,
+  setRightSidebarActiveTab: (rightSidebarActiveTab) =>
+    set({ rightSidebarActiveTab }),
+  setRightSidebarOpen: (rightSidebarOpen) => set({ rightSidebarOpen }),
+  setRightSidebarWidth: (rightSidebarWidth) => {
+    const nextRightSidebarWidth =
+      clampWorkspaceRightSidebarWidth(rightSidebarWidth);
+    writeRightSidebarWidth(nextRightSidebarWidth);
+    set({ rightSidebarWidth: nextRightSidebarWidth });
+  },
   setSidebarOpen: (sidebarOpen) => set({ sidebarOpen }),
   setSidebarOpenMobile: (sidebarOpenMobile) => set({ sidebarOpenMobile }),
-  setWorkspaceMode: (workspaceMode) => set({ workspaceMode }),
+  setWorkspaceMode: (workspaceMode) => {
+    const nextWorkspaceMode = sanitizeWorkspaceMode(workspaceMode);
+    writeWorkspaceMode(nextWorkspaceMode);
+    set({ workspaceMode: nextWorkspaceMode });
+  },
   sidebarOpen: true,
   sidebarOpenMobile: false,
   sidebarProjectIds: new Set(),
@@ -71,6 +106,8 @@ export const useWorkspaceUiStore = create<WorkspaceUiState>()((set) => ({
       }
       return { collapsedChatDateGroupKeys };
     }),
+  toggleRightSidebar: () =>
+    set((current) => ({ rightSidebarOpen: !current.rightSidebarOpen })),
   toggleSidebarProject: (projectId) =>
     set((current) => {
       const expandedProjectIds = new Set(current.expandedProjectIds);
@@ -81,8 +118,65 @@ export const useWorkspaceUiStore = create<WorkspaceUiState>()((set) => ({
       }
       return { expandedProjectIds };
     }),
-  workspaceMode: "chat",
+  workspaceMode: initialWorkspaceMode,
 }));
+
+function readWorkspaceMode(): WorkspaceMode {
+  try {
+    return sanitizeWorkspaceMode(
+      window.localStorage.getItem(workspaceModeStorageKey),
+    );
+  } catch {
+    return "chat";
+  }
+}
+
+function writeWorkspaceMode(workspaceMode: WorkspaceMode) {
+  window.localStorage.setItem(workspaceModeStorageKey, workspaceMode);
+}
+
+function sanitizeWorkspaceMode(value: unknown): WorkspaceMode {
+  return value === "work" ? "work" : "chat";
+}
+
+function readRightSidebarWidth() {
+  try {
+    const value = window.localStorage.getItem(rightSidebarWidthStorageKey);
+    return value === null
+      ? defaultRightSidebarWidth
+      : clampWorkspaceRightSidebarWidth(Number(value));
+  } catch {
+    return defaultRightSidebarWidth;
+  }
+}
+
+function writeRightSidebarWidth(rightSidebarWidth: number) {
+  window.localStorage.setItem(
+    rightSidebarWidthStorageKey,
+    String(clampWorkspaceRightSidebarWidth(rightSidebarWidth)),
+  );
+}
+
+export function clampWorkspaceRightSidebarWidth(value: unknown) {
+  return clampNumber(
+    value,
+    defaultRightSidebarWidth,
+    minRightSidebarWidth,
+    maxRightSidebarWidth,
+  );
+}
+
+function clampNumber(
+  value: unknown,
+  fallback: number,
+  min: number,
+  max: number,
+) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return fallback;
+  }
+  return Math.min(max, Math.max(min, Math.round(value)));
+}
 
 function setsEqual(left: Set<string>, right: Set<string>): boolean {
   if (left.size !== right.size) {
