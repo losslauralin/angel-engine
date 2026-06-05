@@ -61,6 +61,8 @@ const rightSidebarTabs: Array<{
 type WorkspaceCssVariableStyle = CSSProperties &
   Record<`--${string}`, string | number>;
 
+const largeWorkspaceDiffLineThreshold = 1000;
+
 const diffOptions = {
   disableFileHeader: true,
   diffIndicators: "bars",
@@ -522,11 +524,12 @@ function WorkspacePatchFileList({
 
 function WorkspacePatchFileItem({ file }: { file: WorkspacePatchFile }) {
   const fileName = formatWorkspacePatchFileName(file);
+  const lineCount = getWorkspacePatchFileLineCount(file);
 
   return (
     <Collapsible
       className="overflow-hidden rounded-md border border-border/70 bg-background"
-      defaultOpen
+      defaultOpen={lineCount <= largeWorkspaceDiffLineThreshold}
     >
       <CollapsibleTrigger
         className="
@@ -549,7 +552,7 @@ function WorkspacePatchFileItem({ file }: { file: WorkspacePatchFile }) {
           {fileName}
         </span>
         <span className="shrink-0 text-[11px] text-muted-foreground">
-          {formatWorkspacePatchSourceSummary(file.diffs)}
+          {formatWorkspacePatchFileSummary(file.diffs, lineCount)}
         </span>
       </CollapsibleTrigger>
       <CollapsibleContent
@@ -683,6 +686,20 @@ function formatWorkspacePatchSourceSummary(diffs: WorkspaceFilePatch[]) {
   return formatWorkspacePatchSource(
     diffs[0]?.source ?? "unstaged",
   ).toLowerCase();
+}
+
+function formatWorkspacePatchFileSummary(
+  diffs: WorkspaceFilePatch[],
+  lineCount: number,
+) {
+  return `${formatWorkspacePatchSourceSummary(diffs)} · ${lineCount.toLocaleString()} lines`;
+}
+
+function getWorkspacePatchFileLineCount(file: WorkspacePatchFile) {
+  return file.diffs.reduce(
+    (total, diff) => total + diff.fileDiff.unifiedLineCount,
+    0,
+  );
 }
 
 function workspaceFileDiffKey(
