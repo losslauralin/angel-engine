@@ -17,7 +17,7 @@
     "prestart": "pnpm run runtime:build",
     "start": "electron-forge start",
     "prepackage": "pnpm run runtime:build && pnpm run rebuild:native",
-    "package": "electron-forge package",
+    "package": "node scripts/package-app.cjs",
     "make": "pnpm run package && node scripts/build-prepackaged.cjs --publish never",
     "publish": "pnpm run package && node scripts/build-prepackaged.cjs --publish always",
     "lint": "eslint .",
@@ -90,6 +90,7 @@
   "devDependencies": {
     "@antfu/eslint-config": "^9.0.0",
     "@electron-forge/cli": "^7.11.1",
+    "@electron-forge/core": "^7.11.1",
     "@electron-forge/maker-deb": "^7.11.1",
     "@electron-forge/maker-dmg": "^7.11.1",
     "@electron-forge/maker-rpm": "^7.11.1",

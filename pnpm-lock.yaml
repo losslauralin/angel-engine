@@ -255,6 +255,9 @@ importers:
       "@electron-forge/cli":
         specifier: ^7.11.1
         version: 7.11.1(encoding@0.1.13)(esbuild@0.28.0)
+      "@electron-forge/core":
+        specifier: ^7.11.1
+        version: 7.11.1(encoding@0.1.13)(esbuild@0.28.0)
       "@electron-forge/maker-deb":
         specifier: ^7.11.1
         version: 7.11.1
@@ -20384,7 +20387,7 @@ snapshots:
     dependencies:
       "@types/http-cache-semantics": 4.2.0
       "@types/keyv": 3.1.4
-      "@types/node": 25.8.0
+      "@types/node": 20.19.41
       "@types/responselike": 1.0.3
 
   "@types/chai@5.2.3":
@@ -20557,7 +20560,7 @@ snapshots:
 
   "@types/keyv@3.1.4":
     dependencies:
-      "@types/node": 25.8.0
+      "@types/node": 20.19.41
 
   "@types/mdast@4.0.4":
     dependencies:
@@ -20603,7 +20606,7 @@ snapshots:
 
   "@types/responselike@1.0.3":
     dependencies:
-      "@types/node": 25.8.0
+      "@types/node": 20.19.41
 
   "@types/set-cookie-parser@2.4.10":
     dependencies:

@@ -18,6 +18,10 @@ const nativeRuntimeModules = [
   "file-uri-to-path",
   "node-pty",
 ];
+const nativeRuntimeModuleParents = new Map([
+  ["bindings", "better-sqlite3"],
+  ["file-uri-to-path", "bindings"],
+]);
 
 const projectRoot = __dirname;
 const workspaceRoot = path.resolve(projectRoot, "..");
@@ -59,13 +63,21 @@ function copyRuntimePath(buildPath: string, relativePath: string) {
   );
 }
 
+function resolveRuntimeModulePackageJson(moduleName: string): string {
+  const paths = [projectRoot, workspaceRoot];
+  const parentModuleName = nativeRuntimeModuleParents.get(moduleName);
+
+  if (parentModuleName) {
+    paths.unshift(
+      path.dirname(resolveRuntimeModulePackageJson(parentModuleName)),
+    );
+  }
+
+  return workspaceRequire.resolve(`${moduleName}/package.json`, { paths });
+}
+
 function copyRuntimeModule(buildPath: string, moduleName: string) {
-  const packageJsonPath = workspaceRequire.resolve(
-    `${moduleName}/package.json`,
-    {
-      paths: [projectRoot, workspaceRoot],
-    },
-  );
+  const packageJsonPath = resolveRuntimeModulePackageJson(moduleName);
   const sourcePath = path.dirname(packageJsonPath);
   const targetPath = path.join(buildPath, "node_modules", moduleName);
 
