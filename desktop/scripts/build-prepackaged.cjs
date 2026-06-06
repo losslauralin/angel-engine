@@ -4,6 +4,7 @@ const { execFileSync } = require("node:child_process");
 
 const desktopRoot = path.resolve(__dirname, "..");
 const outDir = path.join(desktopRoot, "out");
+const packagedAppPathFile = path.join(outDir, ".prepackaged-app");
 const electronBuilderBin = path.join(
   desktopRoot,
   "node_modules",
@@ -93,11 +94,29 @@ const preferredAppPath = path.join(
   "Angel Engine.app",
 );
 
+function readPackagedAppPath() {
+  if (!fs.existsSync(packagedAppPathFile)) {
+    return undefined;
+  }
+
+  const appPath = fs.readFileSync(packagedAppPathFile, "utf8").trim();
+
+  if (!appPath) {
+    return undefined;
+  }
+
+  return path.resolve(desktopRoot, appPath);
+}
+
 function selectAppBundle() {
   const appBundles = findAppBundles(outDir);
-  const appPath = appBundles.includes(preferredAppPath)
-    ? preferredAppPath
-    : appBundles[0];
+  const packagedAppPath = readPackagedAppPath();
+  const appPath =
+    packagedAppPath && fs.existsSync(packagedAppPath)
+      ? packagedAppPath
+      : appBundles.includes(preferredAppPath)
+        ? preferredAppPath
+        : appBundles[0];
 
   return { appBundles, appPath };
 }
