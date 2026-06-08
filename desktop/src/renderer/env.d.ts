@@ -74,6 +74,8 @@ declare global {
   interface ElectronWebviewElement extends HTMLElement {
     canGoBack: () => boolean;
     canGoForward: () => boolean;
+    getTitle: () => string;
+    getURL: () => string;
     goBack: () => void;
     goForward: () => void;
     reload: () => void;

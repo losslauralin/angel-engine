@@ -314,6 +314,10 @@ function WorkspacePageContent({
     : selectedProjectPath
       ? getProjectDisplayName(selectedProjectPath)
       : undefined;
+  const hasProjectContext = Boolean(
+    routeDraftProjectId ?? routeProjectId ?? selectedChat?.projectId,
+  );
+  const canShowRightSidebar = showRightSidebar && hasProjectContext;
   const workspaceTitle = getWorkspaceTitle({
     selectedChat,
     selectedProjectName,
@@ -1045,10 +1049,10 @@ function WorkspacePageContent({
           <SidebarInset className="h-svh max-h-svh overflow-hidden">
             <WorkspaceHeader
               attention={chatAttention}
-              rightSidebarOpen={showRightSidebar && rightSidebarOpen}
+              rightSidebarOpen={canShowRightSidebar && rightSidebarOpen}
               title={workspaceTitle}
               onToggleRightSidebar={
-                showRightSidebar ? toggleRightSidebar : undefined
+                canShowRightSidebar ? toggleRightSidebar : undefined
               }
             />
             <main className="flex min-h-0 flex-1 overflow-hidden">
@@ -1138,7 +1142,7 @@ function WorkspacePageContent({
                   />
                 )}
               </section>
-              {showRightSidebar ? (
+              {canShowRightSidebar ? (
                 <WorkspaceRightSidebar
                   activeTab={rightSidebarActiveTab}
                   api={api}

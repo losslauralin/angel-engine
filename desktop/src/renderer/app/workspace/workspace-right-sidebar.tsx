@@ -9,9 +9,11 @@ import { FileDiff } from "@pierre/diffs/react";
 import { prepareFileTreeInput, type GitStatus } from "@pierre/trees";
 import { FileTree, useFileTree } from "@pierre/trees/react";
 import {
+  RiAddLine as Add,
   RiArrowLeftLine as ArrowLeft,
   RiArrowRightLine as ArrowRight,
   RiArrowDownSLine as ChevronDown,
+  RiCloseLine as Close,
   RiFolderLine as Folder,
   RiGitBranchLine as GitBranch,
   RiGlobalLine as Browser,
@@ -24,6 +26,7 @@ import {
   type CSSProperties,
   type FormEvent,
   type PointerEvent as ReactPointerEvent,
+  type ReactNode,
   useCallback,
   useEffect,
   useRef,
@@ -62,6 +65,7 @@ type WorkspaceCssVariableStyle = CSSProperties &
   Record<`--${string}`, string | number>;
 
 const largeWorkspaceDiffLineThreshold = 1000;
+const defaultWorkspaceBrowserUrl = "about:blank";
 
 const diffOptions = {
   disableFileHeader: true,
@@ -171,6 +175,71 @@ interface WorkspacePatchFile {
   prevName?: string;
 }
 
+interface WorkspaceTerminalTab {
+  id: string;
+  title: string;
+}
+
+interface WorkspaceTerminalTabsState {
+  activeTabId: string;
+  nextOrdinal: number;
+  tabs: WorkspaceTerminalTab[];
+}
+
+interface WorkspaceBrowserTab {
+  draftUrl: string;
+  id: string;
+  title: string;
+  url: string;
+}
+
+interface WorkspaceBrowserTabsState {
+  activeTabId: string;
+  nextOrdinal: number;
+  tabs: WorkspaceBrowserTab[];
+}
+
+function createWorkspaceTerminalTab(ordinal: number): WorkspaceTerminalTab {
+  return {
+    id: crypto.randomUUID(),
+    title: `Terminal ${ordinal}`,
+  };
+}
+
+function createWorkspaceTerminalTabsState(): WorkspaceTerminalTabsState {
+  const firstTab = createWorkspaceTerminalTab(1);
+
+  return {
+    activeTabId: firstTab.id,
+    nextOrdinal: 2,
+    tabs: [firstTab],
+  };
+}
+
+function createWorkspaceBrowserTab(
+  ordinal: number,
+  url = defaultWorkspaceBrowserUrl,
+): WorkspaceBrowserTab {
+  return {
+    draftUrl: url,
+    id: crypto.randomUUID(),
+    title: `Browser ${ordinal}`,
+    url,
+  };
+}
+
+function createWorkspaceBrowserTabsState(
+  url: string,
+): WorkspaceBrowserTabsState {
+  const firstTab = createWorkspaceBrowserTab(1, url);
+
+  return {
+    activeTabId: firstTab.id,
+    nextOrdinal: 2,
+    tabs: [firstTab],
+  };
+}
+
 export function WorkspaceRightSidebar({
   activeTab,
   api,
@@ -185,6 +254,10 @@ export function WorkspaceRightSidebar({
   );
   const [draftWidth, setDraftWidth] = useState(width);
   const [resizing, setResizing] = useState(false);
+  const [terminalMounted, setTerminalMounted] = useState(
+    activeTab === "terminal",
+  );
+  const [browserMounted, setBrowserMounted] = useState(activeTab === "browser");
   const widthStyle = { width: open ? draftWidth : 0 };
   const contentStyle = { width: draftWidth };
 
@@ -238,6 +311,18 @@ export function WorkspaceRightSidebar({
       }
     },
     [onWidthChange],
+  );
+  const handleTabChange = useCallback(
+    (tab: WorkspaceRightSidebarTab) => {
+      if (tab === "terminal") {
+        setTerminalMounted(true);
+      }
+      if (tab === "browser") {
+        setBrowserMounted(true);
+      }
+      onTabChange(tab);
+    },
+    [onTabChange],
   );
 
   return (
@@ -305,7 +390,7 @@ export function WorkspaceRightSidebar({
                 )}
                 id={tabId}
                 key={tab.value}
-                onClick={() => onTabChange(tab.value)}
+                onClick={() => handleTabChange(tab.value)}
                 role="tab"
                 size="icon-sm"
                 title={tab.label}
@@ -320,7 +405,9 @@ export function WorkspaceRightSidebar({
         <WorkspaceRightSidebarPanel
           activeTab={activeTab}
           api={api}
+          browserMounted={browserMounted}
           root={root}
+          terminalMounted={terminalMounted}
         />
       </div>
     </aside>
@@ -330,26 +417,83 @@ export function WorkspaceRightSidebar({
 function WorkspaceRightSidebarPanel({
   activeTab,
   api,
+  browserMounted,
   root,
+  terminalMounted,
 }: {
   activeTab: WorkspaceRightSidebarTab;
   api: ApiClient;
+  browserMounted: boolean;
   root?: string;
+  terminalMounted: boolean;
+}) {
+  return (
+    <div className="relative min-h-0 flex-1 overflow-hidden">
+      <WorkspaceRightSidebarPanelShell
+        active={activeTab === "files"}
+        tab="files"
+      >
+        {activeTab === "files" ? (
+          <WorkspaceFilesPanel api={api} root={root} />
+        ) : null}
+      </WorkspaceRightSidebarPanelShell>
+      <WorkspaceRightSidebarPanelShell
+        active={activeTab === "terminal"}
+        keepMounted
+        tab="terminal"
+      >
+        {terminalMounted || activeTab === "terminal" ? (
+          <WorkspaceTerminalPanel
+            active={activeTab === "terminal"}
+            key={root ?? "no-root"}
+            root={root}
+          />
+        ) : null}
+      </WorkspaceRightSidebarPanelShell>
+      <WorkspaceRightSidebarPanelShell active={activeTab === "git"} tab="git">
+        {activeTab === "git" ? (
+          <WorkspaceGitPanel api={api} root={root} />
+        ) : null}
+      </WorkspaceRightSidebarPanelShell>
+      <WorkspaceRightSidebarPanelShell
+        active={activeTab === "browser"}
+        keepMounted
+        tab="browser"
+      >
+        {browserMounted || activeTab === "browser" ? (
+          <WorkspaceBrowserPanel active={activeTab === "browser"} />
+        ) : null}
+      </WorkspaceRightSidebarPanelShell>
+    </div>
+  );
+}
+
+function WorkspaceRightSidebarPanelShell({
+  active,
+  children,
+  keepMounted = false,
+  tab,
+}: {
+  active: boolean;
+  children: ReactNode;
+  keepMounted?: boolean;
+  tab: WorkspaceRightSidebarTab;
 }) {
   return (
     <div
-      aria-labelledby={rightSidebarTabId(activeTab)}
-      className="min-h-0 flex-1 overflow-hidden"
-      id={rightSidebarPanelId(activeTab)}
+      aria-hidden={!active}
+      aria-labelledby={rightSidebarTabId(tab)}
+      className={cn(
+        "absolute inset-0 min-h-0 overflow-hidden",
+        !active && (keepMounted ? "pointer-events-none opacity-0" : "hidden"),
+      )}
+      hidden={!active && !keepMounted}
+      id={rightSidebarPanelId(tab)}
+      inert={!active ? true : undefined}
       role="tabpanel"
-      tabIndex={0}
+      tabIndex={active ? 0 : -1}
     >
-      {activeTab === "files" ? (
-        <WorkspaceFilesPanel api={api} root={root} />
-      ) : null}
-      {activeTab === "terminal" ? <WorkspaceTerminalPanel root={root} /> : null}
-      {activeTab === "git" ? <WorkspaceGitPanel api={api} root={root} /> : null}
-      {activeTab === "browser" ? <WorkspaceBrowserPanel /> : null}
+      {children}
     </div>
   );
 }
@@ -710,36 +854,226 @@ function workspaceFileDiffKey(
   return `${source}:${index}:${fileDiff.cacheKey ?? fileDiff.prevName ?? ""}:${fileDiff.name}`;
 }
 
-function WorkspaceBrowserPanel() {
+interface WorkspaceBrowserNavigationState {
+  canGoBack: boolean;
+  canGoForward: boolean;
+  ready: boolean;
+}
+
+function WorkspaceBrowserPanel({ active }: { active: boolean }) {
   const browserUrl = useWorkspaceUiStore((state) => state.browserUrl);
   const setBrowserUrl = useWorkspaceUiStore((state) => state.setBrowserUrl);
-  const webviewRef = useRef<ElectronWebviewElement | null>(null);
-  const [draftUrl, setDraftUrl] = useState(browserUrl);
+  const webviewsRef = useRef(new Map<string, ElectronWebviewElement>());
+  const [tabsState, setTabsState] = useState(() =>
+    createWorkspaceBrowserTabsState(browserUrl),
+  );
+  const [navigationState, setNavigationState] =
+    useState<WorkspaceBrowserNavigationState>({
+      canGoBack: false,
+      canGoForward: false,
+      ready: false,
+    });
+  const activeTab =
+    tabsState.tabs.find((tab) => tab.id === tabsState.activeTabId) ??
+    tabsState.tabs[0];
+  const refreshNavigationState = useCallback(
+    (tabId = tabsState.activeTabId) => {
+      setNavigationState(
+        readWorkspaceBrowserNavigationState(
+          webviewsRef.current.get(tabId) ?? null,
+        ),
+      );
+    },
+    [tabsState.activeTabId],
+  );
+  const setBrowserWebview = useCallback(
+    (tabId: string, webview: ElectronWebviewElement | null) => {
+      if (webview) {
+        webviewsRef.current.set(tabId, webview);
+      } else {
+        webviewsRef.current.delete(tabId);
+      }
+      if (tabId === tabsState.activeTabId) {
+        refreshNavigationState(tabId);
+      }
+    },
+    [refreshNavigationState, tabsState.activeTabId],
+  );
+  const updateBrowserTabUrl = useCallback(
+    (tabId: string, url: string) => {
+      const nextUrl = url.trim() || defaultWorkspaceBrowserUrl;
 
-  useEffect(() => {
-    setDraftUrl(browserUrl);
-  }, [browserUrl]);
+      setTabsState((current) => ({
+        ...current,
+        tabs: current.tabs.map((tab) =>
+          tab.id === tabId
+            ? {
+                ...tab,
+                draftUrl: nextUrl,
+                title: browserTabTitle(tab, nextUrl),
+                url: nextUrl,
+              }
+            : tab,
+        ),
+      }));
+
+      if (tabsState.activeTabId === tabId) {
+        setBrowserUrl(nextUrl);
+        refreshNavigationState(tabId);
+      }
+    },
+    [refreshNavigationState, setBrowserUrl, tabsState.activeTabId],
+  );
+  const updateBrowserTabTitle = useCallback((tabId: string, title: string) => {
+    const nextTitle = title.trim();
+
+    if (!nextTitle) {
+      return;
+    }
+
+    setTabsState((current) => ({
+      ...current,
+      tabs: current.tabs.map((tab) =>
+        tab.id === tabId ? { ...tab, title: nextTitle } : tab,
+      ),
+    }));
+  }, []);
+  const updateActiveBrowserDraftUrl = useCallback((draftUrl: string) => {
+    setTabsState((current) => ({
+      ...current,
+      tabs: current.tabs.map((tab) =>
+        tab.id === current.activeTabId ? { ...tab, draftUrl } : tab,
+      ),
+    }));
+  }, []);
+  const addBrowserTab = useCallback(() => {
+    setBrowserUrl(defaultWorkspaceBrowserUrl);
+    setNavigationState({ canGoBack: false, canGoForward: false, ready: false });
+    setTabsState((current) => {
+      const tab = createWorkspaceBrowserTab(current.nextOrdinal);
+
+      return {
+        activeTabId: tab.id,
+        nextOrdinal: current.nextOrdinal + 1,
+        tabs: [...current.tabs, tab],
+      };
+    });
+  }, [setBrowserUrl]);
+  const selectBrowserTab = useCallback(
+    (tabId: string) => {
+      const tab = tabsState.tabs.find((candidate) => candidate.id === tabId);
+      if (!tab || tabsState.activeTabId === tabId) {
+        return;
+      }
+
+      setTabsState({ ...tabsState, activeTabId: tabId });
+      setBrowserUrl(tab.url);
+      refreshNavigationState(tabId);
+    },
+    [refreshNavigationState, setBrowserUrl, tabsState],
+  );
+  const closeBrowserTab = useCallback(
+    (tabId: string) => {
+      if (tabsState.tabs.length === 1) {
+        return;
+      }
+
+      const tabIndex = tabsState.tabs.findIndex((tab) => tab.id === tabId);
+      if (tabIndex === -1) {
+        return;
+      }
+
+      const tabs = tabsState.tabs.filter((tab) => tab.id !== tabId);
+      const activeTabId =
+        tabsState.activeTabId === tabId
+          ? tabs[Math.min(tabIndex, tabs.length - 1)].id
+          : tabsState.activeTabId;
+      const nextActiveTab = tabs.find((tab) => tab.id === activeTabId);
+
+      setTabsState({ ...tabsState, activeTabId, tabs });
+      if (tabsState.activeTabId === tabId && nextActiveTab) {
+        setBrowserUrl(nextActiveTab.url);
+      }
+      refreshNavigationState(activeTabId);
+    },
+    [refreshNavigationState, setBrowserUrl, tabsState],
+  );
 
   const handleSubmit = useCallback(
     (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
-      const nextUrl = normalizeBrowserUrl(draftUrl);
-      setDraftUrl(nextUrl);
+      const nextUrl = normalizeBrowserUrl(activeTab.draftUrl);
+
+      setTabsState((current) => ({
+        ...current,
+        tabs: current.tabs.map((tab) =>
+          tab.id === current.activeTabId
+            ? {
+                ...tab,
+                draftUrl: nextUrl,
+                title: browserTabTitle(tab, nextUrl),
+                url: nextUrl,
+              }
+            : tab,
+        ),
+      }));
       setBrowserUrl(nextUrl);
     },
-    [draftUrl, setBrowserUrl],
+    [activeTab.draftUrl, setBrowserUrl],
+  );
+  const activeWebview = webviewsRef.current.get(tabsState.activeTabId) ?? null;
+  const goBack = useCallback(() => {
+    const webview = webviewsRef.current.get(tabsState.activeTabId);
+
+    if (safeWorkspaceBrowserCanGoBack(webview ?? null)) {
+      safeWorkspaceBrowserCall(webview ?? null, (currentWebview) => {
+        currentWebview.goBack();
+      });
+    }
+  }, [tabsState.activeTabId]);
+  const goForward = useCallback(() => {
+    const webview = webviewsRef.current.get(tabsState.activeTabId);
+
+    if (safeWorkspaceBrowserCanGoForward(webview ?? null)) {
+      safeWorkspaceBrowserCall(webview ?? null, (currentWebview) => {
+        currentWebview.goForward();
+      });
+    }
+  }, [tabsState.activeTabId]);
+  const reload = useCallback(() => {
+    safeWorkspaceBrowserCall(
+      webviewsRef.current.get(tabsState.activeTabId) ?? null,
+      (webview) => {
+        webview.reload();
+      },
+    );
+  }, [tabsState.activeTabId]);
+  const handleBrowserNavigationStateChange = useCallback(
+    (tabId: string) => {
+      if (tabId === tabsState.activeTabId) {
+        refreshNavigationState(tabId);
+      }
+    },
+    [refreshNavigationState, tabsState.activeTabId],
   );
 
   return (
     <div className="flex h-full min-h-0 flex-col">
+      <WorkspaceBrowserTabStrip
+        activeTabId={tabsState.activeTabId}
+        tabs={tabsState.tabs}
+        onAddTab={addBrowserTab}
+        onCloseTab={closeBrowserTab}
+        onSelectTab={selectBrowserTab}
+      />
       <form
         className="flex h-11 shrink-0 items-center gap-1 border-b border-border/70 px-2"
         onSubmit={handleSubmit}
       >
         <Button
           aria-label="Back"
-          disabled={!webviewRef.current?.canGoBack()}
-          onClick={() => webviewRef.current?.goBack()}
+          disabled={!activeWebview || !navigationState.canGoBack}
+          onClick={goBack}
           size="icon-xs"
           type="button"
           variant="ghost"
@@ -748,8 +1082,8 @@ function WorkspaceBrowserPanel() {
         </Button>
         <Button
           aria-label="Forward"
-          disabled={!webviewRef.current?.canGoForward()}
-          onClick={() => webviewRef.current?.goForward()}
+          disabled={!activeWebview || !navigationState.canGoForward}
+          onClick={goForward}
           size="icon-xs"
           type="button"
           variant="ghost"
@@ -758,7 +1092,8 @@ function WorkspaceBrowserPanel() {
         </Button>
         <Button
           aria-label="Reload"
-          onClick={() => webviewRef.current?.reload()}
+          disabled={!activeWebview || !navigationState.ready}
+          onClick={reload}
           size="icon-xs"
           type="button"
           variant="ghost"
@@ -768,86 +1103,346 @@ function WorkspaceBrowserPanel() {
         <Input
           aria-label="URL"
           className="h-7 rounded-md px-2 text-xs"
-          onChange={(event) => setDraftUrl(event.currentTarget.value)}
-          value={draftUrl}
+          onChange={(event) =>
+            updateActiveBrowserDraftUrl(event.currentTarget.value)
+          }
+          value={activeTab.draftUrl}
         />
       </form>
-      <webview
-        className="min-h-0 flex-1 bg-background"
-        partition="persist:workspace-browser"
-        ref={webviewRef}
-        src={browserUrl}
-      />
+      <div className="relative min-h-0 flex-1 overflow-hidden bg-background">
+        {tabsState.tabs.map((tab) => {
+          const tabActive = active && tabsState.activeTabId === tab.id;
+
+          return (
+            <div
+              aria-hidden={!tabActive}
+              aria-labelledby={workspaceBrowserTabId(tab.id)}
+              className={cn(
+                "absolute inset-0 min-h-0 overflow-hidden",
+                !tabActive && "pointer-events-none opacity-0",
+              )}
+              id={workspaceBrowserTabPanelId(tab.id)}
+              inert={!tabActive ? true : undefined}
+              key={tab.id}
+              role="tabpanel"
+            >
+              <WorkspaceBrowserView
+                tab={tab}
+                onNavigationStateChange={handleBrowserNavigationStateChange}
+                onTitleChange={updateBrowserTabTitle}
+                onUrlChange={updateBrowserTabUrl}
+                onWebviewChange={setBrowserWebview}
+              />
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
 
-function WorkspaceTerminalPanel({ root }: { root?: string }) {
-  const containerRef = useRef<HTMLDivElement | null>(null);
+function WorkspaceBrowserTabStrip({
+  activeTabId,
+  tabs,
+  onAddTab,
+  onCloseTab,
+  onSelectTab,
+}: {
+  activeTabId: string;
+  tabs: WorkspaceBrowserTab[];
+  onAddTab: () => void;
+  onCloseTab: (tabId: string) => void;
+  onSelectTab: (tabId: string) => void;
+}) {
+  return (
+    <div
+      aria-label="Browser tabs"
+      className="
+        flex h-9 shrink-0 items-center gap-1 border-b border-border/70 px-2
+      "
+      role="tablist"
+    >
+      <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
+        {tabs.map((tab) => {
+          const active = activeTabId === tab.id;
 
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container || !root) return;
+          return (
+            <div
+              className={cn(
+                `
+                  flex h-7 max-w-36 min-w-24 shrink-0 items-center overflow-hidden
+                  rounded-md border border-transparent text-xs text-muted-foreground
+                `,
+                active
+                  ? "border-border/80 bg-muted text-foreground"
+                  : "hover:bg-muted/60 hover:text-foreground",
+              )}
+              key={tab.id}
+            >
+              <button
+                aria-controls={workspaceBrowserTabPanelId(tab.id)}
+                aria-selected={active}
+                className="
+                  flex h-full min-w-0 flex-1 items-center gap-1.5 px-2
+                  text-left outline-none
+                  focus-visible:ring-2 focus-visible:ring-ring/30
+                "
+                id={workspaceBrowserTabId(tab.id)}
+                onClick={() => onSelectTab(tab.id)}
+                role="tab"
+                title={tab.title}
+                type="button"
+              >
+                <Browser className="size-3.5 shrink-0" />
+                <span className="truncate">{tab.title}</span>
+              </button>
+              {tabs.length > 1 ? (
+                <button
+                  aria-label={`Close ${tab.title}`}
+                  className="
+                    flex h-full w-6 shrink-0 items-center justify-center
+                    text-muted-foreground/70 outline-none
+                    hover:bg-foreground/5 hover:text-foreground
+                    focus-visible:ring-2 focus-visible:ring-ring/30
+                  "
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onCloseTab(tab.id);
+                  }}
+                  title={`Close ${tab.title}`}
+                  type="button"
+                >
+                  <Close className="size-3.5" />
+                </button>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+      <Button
+        aria-label="New browser tab"
+        className="h-7 border-border/70 px-2 text-xs text-muted-foreground"
+        onClick={onAddTab}
+        size="xs"
+        title="New browser tab"
+        type="button"
+        variant="outline"
+      >
+        <Add className="size-3.5" />
+        <span>New</span>
+      </Button>
+    </div>
+  );
+}
 
-    const terminal = new Terminal({
-      allowProposedApi: false,
-      convertEol: true,
-      cursorBlink: true,
-      fontFamily:
-        'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace',
-      fontSize: 12,
-      scrollback: 5000,
-      theme: getWorkspaceTerminalTheme(),
-    });
-    const fitAddon = new FitAddon();
-    terminal.loadAddon(fitAddon);
-    terminal.open(container);
-    fitAddon.fit();
-    const themeObserver = new MutationObserver(() => {
-      terminal.options.theme = getWorkspaceTerminalTheme();
-    });
-    themeObserver.observe(document.documentElement, {
-      attributeFilter: ["class"],
-      attributes: true,
-    });
+function WorkspaceBrowserView({
+  tab,
+  onNavigationStateChange,
+  onTitleChange,
+  onUrlChange,
+  onWebviewChange,
+}: {
+  tab: WorkspaceBrowserTab;
+  onNavigationStateChange: (tabId: string) => void;
+  onTitleChange: (tabId: string, title: string) => void;
+  onUrlChange: (tabId: string, url: string) => void;
+  onWebviewChange: (
+    tabId: string,
+    webview: ElectronWebviewElement | null,
+  ) => void;
+}) {
+  const cleanupRef = useRef<() => void>(() => {});
+  const setWebview = useCallback(
+    (webview: ElectronWebviewElement | null) => {
+      cleanupRef.current();
+      cleanupRef.current = () => {};
+      onWebviewChange(tab.id, webview);
 
-    const controller = window.terminal.create(
-      {
-        cols: terminal.cols,
-        cwd: root,
-        rows: terminal.rows,
-      },
-      (event) => {
-        if (event.type === "data") {
-          terminal.write(event.data);
-          return;
-        }
-        if (event.type === "error") {
-          terminal.writeln(`\r\n${event.message}`);
-          return;
-        }
-        terminal.writeln("\r\nProcess exited.");
-      },
-    );
-    const dataDisposable = terminal.onData((data) => controller.write(data));
-    const resizeObserver = new ResizeObserver(() => {
-      fitTerminal(fitAddon, terminal, controller);
-    });
-    resizeObserver.observe(container);
-    const animationFrame = window.requestAnimationFrame(() => {
-      fitTerminal(fitAddon, terminal, controller);
-      terminal.focus();
-    });
+      if (!webview) {
+        return;
+      }
 
-    return () => {
-      window.cancelAnimationFrame(animationFrame);
-      themeObserver.disconnect();
-      resizeObserver.disconnect();
-      dataDisposable.dispose();
-      controller.dispose();
-      terminal.dispose();
+      const updateNavigationState = () => {
+        onNavigationStateChange(tab.id);
+      };
+      const updateUrlFromWebview = () => {
+        onUrlChange(tab.id, webview.getURL());
+        updateNavigationState();
+      };
+      const handleNavigation = (event: Event) => {
+        onUrlChange(
+          tab.id,
+          browserNavigationEventUrl(event) ?? webview.getURL(),
+        );
+        updateNavigationState();
+      };
+      const handleTitleUpdate = (event: Event) => {
+        onTitleChange(
+          tab.id,
+          browserTitleEventTitle(event) || webview.getTitle(),
+        );
+      };
+
+      webview.addEventListener("dom-ready", updateNavigationState);
+      webview.addEventListener("did-finish-load", updateUrlFromWebview);
+      webview.addEventListener("did-navigate", handleNavigation);
+      webview.addEventListener("did-navigate-in-page", handleNavigation);
+      webview.addEventListener("page-title-updated", handleTitleUpdate);
+      cleanupRef.current = () => {
+        webview.removeEventListener("dom-ready", updateNavigationState);
+        webview.removeEventListener("did-finish-load", updateUrlFromWebview);
+        webview.removeEventListener("did-navigate", handleNavigation);
+        webview.removeEventListener("did-navigate-in-page", handleNavigation);
+        webview.removeEventListener("page-title-updated", handleTitleUpdate);
+        onWebviewChange(tab.id, null);
+      };
+      updateNavigationState();
+    },
+    [
+      onNavigationStateChange,
+      onTitleChange,
+      onUrlChange,
+      onWebviewChange,
+      tab.id,
+    ],
+  );
+
+  return (
+    <webview
+      className="h-full min-h-0 w-full bg-background"
+      partition="persist:workspace-browser"
+      ref={setWebview}
+      src={tab.url}
+    />
+  );
+}
+
+function readWorkspaceBrowserNavigationState(
+  webview: ElectronWebviewElement | null,
+): WorkspaceBrowserNavigationState {
+  if (!webview) {
+    return { canGoBack: false, canGoForward: false, ready: false };
+  }
+
+  try {
+    return {
+      canGoBack: webview.canGoBack(),
+      canGoForward: webview.canGoForward(),
+      ready: true,
     };
-  }, [root]);
+  } catch {
+    return { canGoBack: false, canGoForward: false, ready: false };
+  }
+}
+
+function safeWorkspaceBrowserCanGoBack(webview: ElectronWebviewElement | null) {
+  try {
+    return webview?.canGoBack() ?? false;
+  } catch {
+    return false;
+  }
+}
+
+function safeWorkspaceBrowserCanGoForward(
+  webview: ElectronWebviewElement | null,
+) {
+  try {
+    return webview?.canGoForward() ?? false;
+  } catch {
+    return false;
+  }
+}
+
+function safeWorkspaceBrowserCall(
+  webview: ElectronWebviewElement | null,
+  action: (webview: ElectronWebviewElement) => void,
+) {
+  if (!webview) {
+    return;
+  }
+
+  try {
+    action(webview);
+  } catch {
+    return;
+  }
+}
+
+function browserNavigationEventUrl(event: Event) {
+  const navigationEvent = event as Event & { readonly url?: string };
+
+  return typeof navigationEvent.url === "string"
+    ? navigationEvent.url
+    : undefined;
+}
+
+function browserTitleEventTitle(event: Event) {
+  const titleEvent = event as Event & { readonly title?: string };
+
+  return typeof titleEvent.title === "string" ? titleEvent.title : undefined;
+}
+
+function browserTabTitle(tab: WorkspaceBrowserTab, url: string) {
+  const trimmedUrl = url.trim();
+
+  if (!trimmedUrl || trimmedUrl === defaultWorkspaceBrowserUrl) {
+    return tab.title.startsWith("Browser ") ? tab.title : "Blank";
+  }
+
+  try {
+    const parsedUrl = new URL(trimmedUrl);
+    return parsedUrl.host || parsedUrl.href;
+  } catch {
+    return trimmedUrl;
+  }
+}
+
+function WorkspaceTerminalPanel({
+  active,
+  root,
+}: {
+  active: boolean;
+  root?: string;
+}) {
+  const [tabsState, setTabsState] = useState(createWorkspaceTerminalTabsState);
+  const addTerminalTab = useCallback(() => {
+    setTabsState((current) => {
+      const tab = createWorkspaceTerminalTab(current.nextOrdinal);
+
+      return {
+        activeTabId: tab.id,
+        nextOrdinal: current.nextOrdinal + 1,
+        tabs: [...current.tabs, tab],
+      };
+    });
+  }, []);
+  const selectTerminalTab = useCallback((tabId: string) => {
+    setTabsState((current) =>
+      current.activeTabId === tabId
+        ? current
+        : { ...current, activeTabId: tabId },
+    );
+  }, []);
+  const closeTerminalTab = useCallback((tabId: string) => {
+    setTabsState((current) => {
+      if (current.tabs.length === 1) {
+        return current;
+      }
+
+      const tabIndex = current.tabs.findIndex((tab) => tab.id === tabId);
+      if (tabIndex === -1) {
+        return current;
+      }
+
+      const tabs = current.tabs.filter((tab) => tab.id !== tabId);
+      const activeTabId =
+        current.activeTabId === tabId
+          ? tabs[Math.min(tabIndex, tabs.length - 1)].id
+          : current.activeTabId;
+
+      return { ...current, activeTabId, tabs };
+    });
+  }, []);
 
   if (!root) {
     return <WorkspaceToolEmpty title="No workspace root" />;
@@ -855,11 +1450,243 @@ function WorkspaceTerminalPanel({ root }: { root?: string }) {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
+      <WorkspaceTerminalTabStrip
+        activeTabId={tabsState.activeTabId}
+        tabs={tabsState.tabs}
+        onAddTab={addTerminalTab}
+        onCloseTab={closeTerminalTab}
+        onSelectTab={selectTerminalTab}
+      />
       <div className="min-h-0 flex-1 overflow-hidden bg-background p-2">
-        <div ref={containerRef} className="h-full min-h-0 overflow-hidden" />
+        <div className="relative h-full min-h-0 overflow-hidden">
+          {tabsState.tabs.map((tab) => {
+            const tabActive = active && tabsState.activeTabId === tab.id;
+
+            return (
+              <div
+                aria-hidden={!tabActive}
+                aria-labelledby={workspaceTerminalTabId(tab.id)}
+                className={cn(
+                  "absolute inset-0 min-h-0 overflow-hidden",
+                  !tabActive && "pointer-events-none opacity-0",
+                )}
+                id={workspaceTerminalTabPanelId(tab.id)}
+                inert={!tabActive ? true : undefined}
+                key={tab.id}
+                role="tabpanel"
+              >
+                <WorkspaceTerminalView autoFocus={tabActive} root={root} />
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
+}
+
+function WorkspaceTerminalTabStrip({
+  activeTabId,
+  tabs,
+  onAddTab,
+  onCloseTab,
+  onSelectTab,
+}: {
+  activeTabId: string;
+  tabs: WorkspaceTerminalTab[];
+  onAddTab: () => void;
+  onCloseTab: (tabId: string) => void;
+  onSelectTab: (tabId: string) => void;
+}) {
+  return (
+    <div
+      aria-label="Terminal tabs"
+      className="
+        flex h-9 shrink-0 items-center gap-1 border-b border-border/70 px-2
+      "
+      role="tablist"
+    >
+      <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
+        {tabs.map((tab) => {
+          const active = activeTabId === tab.id;
+
+          return (
+            <div
+              className={cn(
+                `
+                  flex h-7 max-w-36 min-w-24 shrink-0 items-center overflow-hidden
+                  rounded-md border border-transparent text-xs text-muted-foreground
+                `,
+                active
+                  ? "border-border/80 bg-muted text-foreground"
+                  : "hover:bg-muted/60 hover:text-foreground",
+              )}
+              key={tab.id}
+            >
+              <button
+                aria-controls={workspaceTerminalTabPanelId(tab.id)}
+                aria-selected={active}
+                className="
+                  flex h-full min-w-0 flex-1 items-center gap-1.5 px-2
+                  text-left outline-none
+                  focus-visible:ring-2 focus-visible:ring-ring/30
+                "
+                id={workspaceTerminalTabId(tab.id)}
+                onClick={() => onSelectTab(tab.id)}
+                role="tab"
+                title={tab.title}
+                type="button"
+              >
+                <TerminalIcon className="size-3.5 shrink-0" />
+                <span className="truncate">{tab.title}</span>
+              </button>
+              {tabs.length > 1 ? (
+                <button
+                  aria-label={`Close ${tab.title}`}
+                  className="
+                    flex h-full w-6 shrink-0 items-center justify-center
+                    text-muted-foreground/70 outline-none
+                    hover:bg-foreground/5 hover:text-foreground
+                    focus-visible:ring-2 focus-visible:ring-ring/30
+                  "
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onCloseTab(tab.id);
+                  }}
+                  title={`Close ${tab.title}`}
+                  type="button"
+                >
+                  <Close className="size-3.5" />
+                </button>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+      <Button
+        aria-label="New terminal tab"
+        className="h-7 border-border/70 px-2 text-xs text-muted-foreground"
+        onClick={onAddTab}
+        size="xs"
+        title="New terminal tab"
+        type="button"
+        variant="outline"
+      >
+        <Add className="size-3.5" />
+        <span>New</span>
+      </Button>
+    </div>
+  );
+}
+
+interface WorkspaceTerminalInstance {
+  animationFrame: number;
+  controller: TerminalSessionController;
+  dataDisposable: { dispose: () => void };
+  resizeObserver: ResizeObserver;
+  terminal: Terminal;
+  themeObserver: MutationObserver;
+}
+
+function WorkspaceTerminalView({
+  autoFocus,
+  root,
+}: {
+  autoFocus: boolean;
+  root: string;
+}) {
+  const instanceRef = useRef<WorkspaceTerminalInstance | null>(null);
+  const autoFocusRef = useRef(autoFocus);
+  autoFocusRef.current = autoFocus;
+  const setContainer = useCallback(
+    (container: HTMLDivElement | null) => {
+      disposeWorkspaceTerminalInstance(instanceRef.current);
+      instanceRef.current = null;
+
+      if (!container) {
+        return;
+      }
+
+      const terminal = new Terminal({
+        allowProposedApi: false,
+        convertEol: true,
+        cursorBlink: true,
+        fontFamily:
+          'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace',
+        fontSize: 12,
+        scrollback: 5000,
+        theme: getWorkspaceTerminalTheme(),
+      });
+      const fitAddon = new FitAddon();
+      terminal.loadAddon(fitAddon);
+      terminal.open(container);
+      fitAddon.fit();
+      const themeObserver = new MutationObserver(() => {
+        terminal.options.theme = getWorkspaceTerminalTheme();
+      });
+      themeObserver.observe(document.documentElement, {
+        attributeFilter: ["class"],
+        attributes: true,
+      });
+
+      const controller = window.terminal.create(
+        {
+          cols: terminal.cols,
+          cwd: root,
+          rows: terminal.rows,
+        },
+        (event) => {
+          if (event.type === "data") {
+            terminal.write(event.data);
+            return;
+          }
+          if (event.type === "error") {
+            terminal.writeln(`\r\n${event.message}`);
+            return;
+          }
+          terminal.writeln("\r\nProcess exited.");
+        },
+      );
+      const dataDisposable = terminal.onData((data) => controller.write(data));
+      const resizeObserver = new ResizeObserver(() => {
+        fitTerminal(fitAddon, terminal, controller);
+      });
+      resizeObserver.observe(container);
+      const animationFrame = window.requestAnimationFrame(() => {
+        fitTerminal(fitAddon, terminal, controller);
+        if (autoFocusRef.current) {
+          terminal.focus();
+        }
+      });
+
+      instanceRef.current = {
+        animationFrame,
+        controller,
+        dataDisposable,
+        resizeObserver,
+        terminal,
+        themeObserver,
+      };
+    },
+    [root],
+  );
+
+  return <div className="h-full min-h-0 overflow-hidden" ref={setContainer} />;
+}
+
+function disposeWorkspaceTerminalInstance(
+  instance: WorkspaceTerminalInstance | null,
+) {
+  if (!instance) {
+    return;
+  }
+
+  window.cancelAnimationFrame(instance.animationFrame);
+  instance.themeObserver.disconnect();
+  instance.resizeObserver.disconnect();
+  instance.dataDisposable.dispose();
+  instance.controller.dispose();
+  instance.terminal.dispose();
 }
 
 function getWorkspaceTerminalTheme() {
@@ -945,4 +1772,20 @@ function rightSidebarTabId(tab: WorkspaceRightSidebarTab) {
 
 function rightSidebarPanelId(tab: WorkspaceRightSidebarTab) {
   return `workspace-right-sidebar-${tab}-panel`;
+}
+
+function workspaceBrowserTabId(tabId: string) {
+  return `workspace-browser-${tabId}-tab`;
+}
+
+function workspaceBrowserTabPanelId(tabId: string) {
+  return `workspace-browser-${tabId}-panel`;
+}
+
+function workspaceTerminalTabId(tabId: string) {
+  return `workspace-terminal-${tabId}-tab`;
+}
+
+function workspaceTerminalTabPanelId(tabId: string) {
+  return `workspace-terminal-${tabId}-panel`;
 }
