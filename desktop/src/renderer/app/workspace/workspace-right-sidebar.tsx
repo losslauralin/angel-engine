@@ -504,14 +504,11 @@ function WorkspaceFilesPanel({ api, root }: { api: ApiClient; root?: string }) {
   }, [model, treeQuery.data]);
   const handleFileTreeClick = useCallback(
     (event: ReactMouseEvent<HTMLDivElement>) => {
-      if (!root || !(event.target instanceof Element)) {
+      if (!root) {
         return;
       }
 
-      const row = event.target.closest<HTMLElement>(
-        "[data-item-path][data-item-type='file']",
-      );
-      const path = row?.dataset.itemPath;
+      const path = getClickedFileTreePath(event);
       if (!path) {
         return;
       }
@@ -565,6 +562,33 @@ function WorkspaceFilesPanel({ api, root }: { api: ApiClient; root?: string }) {
       </div>
     </div>
   );
+}
+
+function getClickedFileTreePath(event: ReactMouseEvent<HTMLElement>) {
+  const directTarget =
+    event.target instanceof Element
+      ? event.target.closest<HTMLElement>(
+          "[data-item-path][data-item-type='file']",
+        )
+      : null;
+  if (directTarget?.dataset.itemPath) {
+    return directTarget.dataset.itemPath;
+  }
+
+  for (const target of event.nativeEvent.composedPath()) {
+    if (!(target instanceof HTMLElement)) {
+      continue;
+    }
+    if (
+      target.dataset.itemType === "file" &&
+      typeof target.dataset.itemPath === "string" &&
+      target.dataset.itemPath.length > 0
+    ) {
+      return target.dataset.itemPath;
+    }
+  }
+
+  return null;
 }
 
 function WorkspaceGitPanel({ api, root }: { api: ApiClient; root?: string }) {

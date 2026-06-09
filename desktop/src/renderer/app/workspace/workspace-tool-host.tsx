@@ -10,7 +10,12 @@ import type {
 import type { FileDiffMetadata } from "@pierre/diffs";
 import type { CSSProperties } from "react";
 
-import { parsePatchFiles } from "@pierre/diffs";
+import {
+  getFiletypeFromFileName,
+  getHighlighterOptions,
+  parsePatchFiles,
+  preloadHighlighter,
+} from "@pierre/diffs";
 import { FileDiff } from "@pierre/diffs/react";
 import {
   RiAddLine as Add,
@@ -37,7 +42,12 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getApiClient } from "@/platform/api-client";
 import { queryKeys } from "@/platform/query-keys";
@@ -164,6 +174,12 @@ export function WorkspaceToolDialogHost({ api }: { api: ApiClient }) {
         className="!flex h-[min(90vh,960px)] !w-[calc(100vw-24px)] !max-w-[calc(100vw-24px)] flex-row gap-0 overflow-hidden p-0 sm:!w-[calc(100vw-40px)] sm:!max-w-[calc(100vw-40px)]"
         showCloseButton={false}
       >
+        <DialogTitle className="sr-only">
+          {workspaceToolDisplayTitle(instance)}
+        </DialogTitle>
+        <DialogDescription className="sr-only">
+          Workspace tool dialog
+        </DialogDescription>
         <WorkspaceToolWorkbench
           activeToolId={instance.id}
           api={api}
@@ -457,6 +473,9 @@ export function WorkspaceToolWindowPage({ toolId }: { toolId: string }) {
 
   return (
     <div className="flex h-screen min-h-0 bg-background text-foreground">
+      <WorkspaceToolWindowTitleBridge
+        title={workspaceToolWindowDocumentTitle(activeTool)}
+      />
       <WorkspaceToolWorkbench
         activeToolId={activeTool.id}
         api={api}
@@ -471,6 +490,21 @@ export function WorkspaceToolWindowPage({ toolId }: { toolId: string }) {
       />
     </div>
   );
+}
+
+function WorkspaceToolWindowTitleBridge({ title }: { title: string }) {
+  const syncTitle = useCallback(
+    (node: HTMLSpanElement | null) => {
+      if (!node) {
+        return;
+      }
+
+      document.title = title;
+    },
+    [title],
+  );
+
+  return <span hidden ref={syncTitle} />;
 }
 
 function WorkspaceToolHeader({
@@ -614,8 +648,23 @@ function nextWorkspaceToolTitle(
   kind: "browser" | "terminal",
   label: string,
 ) {
-  const nextOrdinal = tools.filter((tool) => tool.kind === kind).length + 1;
+  const ordinalPattern = new RegExp(`^${escapeRegExp(label)}\\s+(\\d+)$`, "u");
+  const nextOrdinal =
+    Math.max(
+      0,
+      ...tools
+        .filter((tool) => tool.kind === kind)
+        .map((tool) => {
+          const match = ordinalPattern.exec(tool.title.trim());
+          return match ? Number(match[1]) : 0;
+        }),
+    ) + 1;
+
   return `${label} ${nextOrdinal}`;
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function workspaceToolDisplayTitle(instance: WorkspaceToolInstance) {
@@ -623,6 +672,23 @@ function workspaceToolDisplayTitle(instance: WorkspaceToolInstance) {
   const rootName = root ? workspaceToolRootName(root) : undefined;
 
   return rootName ? `${instance.title} · ${rootName}` : instance.title;
+}
+
+function workspaceToolWindowDocumentTitle(instance: WorkspaceToolInstance) {
+  return `Angel Engine · ${workspaceToolKindLabel(instance)}: ${workspaceToolDisplayTitle(instance)}`;
+}
+
+function workspaceToolKindLabel(instance: WorkspaceToolInstance) {
+  switch (instance.kind) {
+    case "browser":
+      return "Browser";
+    case "file-preview":
+      return "File";
+    case "git-diff":
+      return "Git";
+    case "terminal":
+      return "Terminal";
+  }
 }
 
 function workspaceToolIcon(instance: WorkspaceToolInstance) {
@@ -852,12 +918,13 @@ function WorkspaceToolPatchFileItem({
                   {formatWorkspaceToolPatchSource(diff.source)}
                 </div>
               ) : null}
-              <FileDiff
-                className="block overflow-hidden bg-background"
-                disableWorkerPool
+              <WorkspaceToolFileDiff
                 fileDiff={diff.fileDiff}
-                options={diffOptions}
-                style={diffHostStyle}
+                preloadKey={workspaceToolFileDiffKey(
+                  diff.source,
+                  diff.fileDiff,
+                  index,
+                )}
               />
             </div>
           ))}
@@ -865,6 +932,73 @@ function WorkspaceToolPatchFileItem({
       </CollapsibleContent>
     </Collapsible>
   );
+}
+
+function WorkspaceToolFileDiff({
+  fileDiff,
+  preloadKey,
+}: {
+  fileDiff: FileDiffMetadata;
+  preloadKey: string;
+}) {
+  const preloadQuery = useQuery({
+    queryFn: () => preloadWorkspaceToolFileDiffHighlighter(fileDiff),
+    queryKey: [
+      "workspace-tool-file-diff-highlighter",
+      preloadKey,
+      workspaceToolFileDiffVersion(fileDiff),
+    ],
+    retry: false,
+    staleTime: Infinity,
+  });
+
+  if (!preloadQuery.data && !preloadQuery.isError) {
+    return (
+      <div className="space-y-2 p-2">
+        <Skeleton className="h-6 w-48 rounded-md" />
+        <Skeleton className="h-40 w-full rounded-md" />
+      </div>
+    );
+  }
+
+  if (preloadQuery.isError) {
+    return (
+      <WorkspaceToolEmpty
+        detail={getErrorMessage(preloadQuery.error)}
+        title="Diff unavailable"
+      />
+    );
+  }
+
+  return (
+    <FileDiff
+      className="block overflow-hidden bg-background"
+      disableWorkerPool
+      fileDiff={fileDiff}
+      key={preloadKey}
+      options={diffOptions}
+      style={diffHostStyle}
+    />
+  );
+}
+
+async function preloadWorkspaceToolFileDiffHighlighter(
+  fileDiff: FileDiffMetadata,
+) {
+  const names = [fileDiff.name, fileDiff.prevName].filter(
+    (name): name is string => name != null,
+  );
+  const languages = new Set(
+    names.map((name) => fileDiff.lang ?? getFiletypeFromFileName(name)),
+  );
+
+  await Promise.all(
+    [...languages].map((language) =>
+      preloadHighlighter(getHighlighterOptions(language, diffOptions)),
+    ),
+  );
+
+  return true;
 }
 
 function buildWorkspaceToolPatchList(
@@ -991,6 +1125,16 @@ function workspaceToolFileDiffKey(
   index: number,
 ) {
   return `${source}:${index}:${fileDiff.cacheKey ?? fileDiff.prevName ?? ""}:${fileDiff.name}`;
+}
+
+function workspaceToolFileDiffVersion(fileDiff: FileDiffMetadata) {
+  return [
+    fileDiff.unifiedLineCount,
+    fileDiff.splitLineCount,
+    ...fileDiff.hunks.map((hunk) => hunk.hunkSpecs ?? ""),
+    ...fileDiff.deletionLines,
+    ...fileDiff.additionLines,
+  ].join("\n");
 }
 
 function WorkspaceToolEmpty({
