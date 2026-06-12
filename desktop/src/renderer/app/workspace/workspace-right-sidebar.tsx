@@ -1,5 +1,5 @@
-import type { ApiClient } from "@/platform/api-client";
 import type { PointerEvent as ReactPointerEvent } from "react";
+import type { ApiClient } from "@/platform/api-client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -8,6 +8,7 @@ import { clampWorkspaceRightSidebarWidth } from "@/app/workspace/workspace-ui-st
 import { cn } from "@/platform/utils";
 
 interface WorkspaceRightSidebarProps {
+  active?: boolean;
   api: ApiClient;
   chatId: string;
   open: boolean;
@@ -17,6 +18,7 @@ interface WorkspaceRightSidebarProps {
 }
 
 export function WorkspaceRightSidebar({
+  active = true,
   api,
   chatId,
   open,
@@ -107,6 +109,7 @@ export function WorkspaceRightSidebar({
       />
       <div className="flex h-full flex-col" style={contentStyle}>
         <WorkspaceToolSurface
+          active={active && open}
           api={api}
           chatId={chatId}
           host="sidebar"

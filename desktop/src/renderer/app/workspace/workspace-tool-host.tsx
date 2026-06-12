@@ -1,19 +1,29 @@
-import type { ApiClient } from "@/platform/api-client";
+import type { FileDiffMetadata } from "@pierre/diffs";
+import type { GitStatus } from "@pierre/trees";
 import type { WorkspaceBrowserState } from "@shared/workspace-browser";
-import type {
-  WorkspaceFileReadResult,
-  WorkspaceGitDiffResult,
-  WorkspaceToolGitStatus,
-} from "@shared/workspace-tools";
 import type {
   WorkspaceToolPinnedTabId,
   WorkspaceToolSurfaceDynamicTab,
   WorkspaceToolSurfaceHost,
   WorkspaceToolSurfaceSnapshot,
 } from "@shared/workspace-tool-surface";
-import type { FileDiffMetadata } from "@pierre/diffs";
-import type { CSSProperties } from "react";
+import type {
+  WorkspaceFileReadResult,
+  WorkspaceGitDiffResult,
+  WorkspaceToolGitStatus,
+} from "@shared/workspace-tools";
+import type { QueryClient } from "@tanstack/react-query";
+import type {
+  CSSProperties,
+  FormEvent,
+  KeyboardEvent as ReactKeyboardEvent,
+  MouseEvent as ReactMouseEvent,
+  ReactNode,
+} from "react";
+import type { WorkspaceWideFileState } from "@/app/workspace/workspace-tool-store";
+import type { ApiClient } from "@/platform/api-client";
 
+import Editor, { loader as monacoLoader } from "@monaco-editor/react";
 import {
   DEFAULT_VIRTUAL_FILE_METRICS,
   getFiletypeFromFileName,
@@ -26,54 +36,43 @@ import {
   createFileTreeIconResolver,
   getBuiltInSpriteSheet,
   prepareFileTreeInput,
-  type GitStatus,
 } from "@pierre/trees";
 import { FileTree, useFileTree } from "@pierre/trees/react";
-import Editor, { loader as monacoLoader } from "@monaco-editor/react";
-import * as monaco from "monaco-editor";
-import { basename } from "pathe";
 import {
   RiAddLine as Add,
   RiArrowLeftLine as ArrowLeft,
   RiArrowRightLine as ArrowRight,
+  RiGlobalLine as Browser,
   RiCloseLine as Close,
   RiExternalLinkLine as DialogIcon,
+  RiSidebarFoldLine as DockIcon,
   RiFileTextLine as FileText,
   RiFolderLine as Folder,
   RiGitBranchLine as GitBranch,
-  RiGlobalLine as Browser,
   RiRefreshLine as Refresh,
-  RiSidebarFoldLine as DockIcon,
   RiTerminalBoxLine as TerminalIcon,
   RiWindowLine as WindowIcon,
 } from "@remixicon/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  type FormEvent,
-  type MouseEvent as ReactMouseEvent,
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import * as monaco from "monaco-editor";
+import { basename } from "pathe";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
-  WorkspaceBrowserNativeView,
   browserTitleFromUrl,
   normalizeWorkspaceBrowserUrl,
+  WorkspaceBrowserNativeView,
 } from "@/app/workspace/workspace-browser-view";
+import { WorkspaceTerminalView } from "@/app/workspace/workspace-terminal-view";
 import {
   currentWorkspaceToolSnapshot,
   emptyWorkspaceWideFilesState,
   ensureWorkspaceToolSurfaceEvents,
   isWorkspaceWideFileStateDirty,
   useWorkspaceToolStore,
-  type WorkspaceWideFileState,
   workspaceToolFilesTabId,
   workspaceToolGitTabId,
 } from "@/app/workspace/workspace-tool-store";
-import { WorkspaceTerminalView } from "@/app/workspace/workspace-terminal-view";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -171,6 +170,9 @@ const workspaceMonacoLanguageByFileTreeToken: Partial<Record<string, string>> =
 
 type WorkspaceToolCssVariableStyle = CSSProperties &
   Record<`--${string}`, string | number>;
+type WorkspaceToolTabSelectHandler = (
+  tabId: string,
+) => boolean | Promise<boolean> | void;
 
 type WorkspaceToolPatchSource = "staged" | "unstaged";
 
@@ -192,6 +194,7 @@ interface WorkspaceToolPatchFileLineChanges {
 }
 
 interface WorkspaceToolSurfaceProps {
+  active?: boolean;
   api: ApiClient;
   chatId?: string | null;
   host: WorkspaceToolSurfaceHost;
@@ -378,13 +381,15 @@ export function WorkspaceToolContextBridge({
 
 export function WorkspaceToolDialogHost({ api }: { api: ApiClient }) {
   ensureWorkspaceToolSurfaceEvents();
+  const queryClient = useQueryClient();
   const host = useWorkspaceToolStore((state) => state.host);
-  const wideFilesEditorDirty = useWorkspaceToolStore(
-    (state) => state.wideFilesEditorDirty,
-  );
-  const setWideFilesEditorDirty = useWorkspaceToolStore(
-    (state) => state.setWideFilesEditorDirty,
-  );
+  const root = useWorkspaceToolStore((state) => state.context.root ?? null);
+  const closeDialog = useCallback(async () => {
+    if (!(await confirmWorkspaceWideFilesExit({ api, queryClient, root }))) {
+      return;
+    }
+    useWorkspaceToolStore.getState().requestWorkspaceToolHost("sidebar");
+  }, [api, queryClient, root]);
 
   if (host !== "dialog") {
     return null;
@@ -395,11 +400,7 @@ export function WorkspaceToolDialogHost({ api }: { api: ApiClient }) {
       open
       onOpenChange={(open) => {
         if (!open) {
-          if (!confirmDiscardWorkspaceToolFileChanges(wideFilesEditorDirty)) {
-            return;
-          }
-          setWideFilesEditorDirty(false);
-          useWorkspaceToolStore.getState().requestWorkspaceToolHost("sidebar");
+          void closeDialog();
         }
       }}
     >
@@ -436,6 +437,7 @@ export function WorkspaceToolWindowPage() {
 }
 
 export function WorkspaceToolSurface({
+  active = true,
   api,
   chatId: propChatId,
   host,
@@ -443,6 +445,7 @@ export function WorkspaceToolSurface({
   trafficLightInset = false,
 }: WorkspaceToolSurfaceProps) {
   ensureWorkspaceToolSurfaceEvents();
+  const queryClient = useQueryClient();
   const context = useWorkspaceToolStore((state) => state.context);
   const snapshots = useWorkspaceToolStore((state) => state.snapshots);
   const updateSnapshot = useWorkspaceToolStore(
@@ -451,31 +454,21 @@ export function WorkspaceToolSurface({
   const requestHost = useWorkspaceToolStore(
     (state) => state.requestWorkspaceToolHost,
   );
-  const wideFilesEditorDirty = useWorkspaceToolStore(
-    (state) => state.wideFilesEditorDirty,
-  );
-  const setWideFilesEditorDirty = useWorkspaceToolStore(
-    (state) => state.setWideFilesEditorDirty,
-  );
   const chatId = propChatId ?? context.chatId ?? null;
   const root = propRoot ?? context.root ?? null;
   const snapshot = currentWorkspaceToolSnapshot(chatId, snapshots);
   const activeTabId = visibleActiveWorkspaceToolTabId(snapshot);
   const activeDynamicTab = snapshot.tabs.find((tab) => tab.id === activeTabId);
   const openWorkspaceWideFile = useWorkspaceWideFileOpener(api);
-  const confirmWideFilesEditorExit = useCallback(() => {
-    if (host === "sidebar" || activeTabId !== workspaceToolFilesTabId) {
+  const confirmWideFilesEditorExit = useCallback(async () => {
+    if (host === "sidebar") {
       return true;
     }
-    if (!confirmDiscardWorkspaceToolFileChanges(wideFilesEditorDirty)) {
-      return false;
-    }
-    setWideFilesEditorDirty(false);
-    return true;
-  }, [activeTabId, host, setWideFilesEditorDirty, wideFilesEditorDirty]);
+    return confirmWorkspaceWideFilesExit({ api, queryClient, root });
+  }, [api, host, queryClient, root]);
   const requestSurfaceHost = useCallback(
-    (nextHost: WorkspaceToolSurfaceHost) => {
-      if (nextHost !== host && !confirmWideFilesEditorExit()) {
+    async (nextHost: WorkspaceToolSurfaceHost) => {
+      if (nextHost !== host && !(await confirmWideFilesEditorExit())) {
         return;
       }
       requestHost(nextHost);
@@ -497,11 +490,12 @@ export function WorkspaceToolSurface({
     [chatId, updateSnapshot],
   );
   const selectTab = useCallback(
-    (tabId: WorkspaceToolPinnedTabId | string) => {
-      if (tabId !== activeTabId && !confirmWideFilesEditorExit()) {
-        return;
+    async (tabId: WorkspaceToolPinnedTabId | string) => {
+      if (tabId !== activeTabId && !(await confirmWideFilesEditorExit())) {
+        return false;
       }
       setSnapshot((current) => ({ ...current, activeTabId: tabId }));
+      return true;
     },
     [activeTabId, confirmWideFilesEditorExit, setSnapshot],
   );
@@ -517,7 +511,7 @@ export function WorkspaceToolSurface({
         activeTabId: workspaceToolFilesTabId,
       }));
       if (host === "sidebar") {
-        requestSurfaceHost("dialog");
+        void requestSurfaceHost("dialog");
       }
     },
     [host, openWorkspaceWideFile, requestSurfaceHost, root, setSnapshot],
@@ -614,7 +608,9 @@ export function WorkspaceToolSurface({
         <WorkspaceToolSurfaceHeader
           host={host}
           trafficLightInset={trafficLightInset}
-          onRequestHost={requestSurfaceHost}
+          onRequestHost={(nextHost) => {
+            void requestSurfaceHost(nextHost);
+          }}
         />
       ) : null}
       {!chatId || !root ? (
@@ -634,6 +630,7 @@ export function WorkspaceToolSurface({
               activeDynamicTab={activeDynamicTab}
               activeTabId={activeTabId}
               api={api}
+              surfaceActive={active}
               root={root}
               onBrowserTabChange={setSnapshot}
               onOpenFile={openFileTab}
@@ -656,6 +653,7 @@ export function WorkspaceToolSurface({
               activeTabId={activeTabId}
               api={api}
               root={root}
+              surfaceActive={active}
               onBrowserTabChange={setSnapshot}
               onOpenFile={openFileTab}
             />
@@ -778,6 +776,81 @@ function WorkspaceToolSurfaceHostButton({
   );
 }
 
+function useWorkspaceToolTabKeyboard({
+  onSelectTab,
+  orientation,
+  tabs,
+}: {
+  onSelectTab: WorkspaceToolTabSelectHandler;
+  orientation: "horizontal" | "vertical";
+  tabs: WorkspaceToolTabItem[];
+}) {
+  const tabButtonsRef = useRef(new Map<string, HTMLButtonElement>());
+  const setTabButtonRef = useCallback(
+    (tabId: string, button: HTMLButtonElement | null) => {
+      if (button) {
+        tabButtonsRef.current.set(tabId, button);
+      } else {
+        tabButtonsRef.current.delete(tabId);
+      }
+    },
+    [],
+  );
+  const selectAndFocusTab = useCallback(
+    (index: number) => {
+      const tab = tabs[index];
+      if (!tab) {
+        return;
+      }
+
+      void Promise.resolve(onSelectTab(tab.id)).then((selected) => {
+        if (selected === false) {
+          return;
+        }
+        window.requestAnimationFrame(() => {
+          tabButtonsRef.current.get(tab.id)?.focus();
+        });
+      });
+    },
+    [onSelectTab, tabs],
+  );
+  const handleTabKeyDown = useCallback(
+    (event: ReactKeyboardEvent<HTMLButtonElement>, tabId: string) => {
+      const currentIndex = tabs.findIndex((tab) => tab.id === tabId);
+      if (currentIndex < 0) {
+        return;
+      }
+
+      let nextIndex: number | null = null;
+      if (event.key === "Home") {
+        nextIndex = 0;
+      } else if (event.key === "End") {
+        nextIndex = tabs.length - 1;
+      } else if (
+        (orientation === "horizontal" && event.key === "ArrowRight") ||
+        (orientation === "vertical" && event.key === "ArrowDown")
+      ) {
+        nextIndex = (currentIndex + 1) % tabs.length;
+      } else if (
+        (orientation === "horizontal" && event.key === "ArrowLeft") ||
+        (orientation === "vertical" && event.key === "ArrowUp")
+      ) {
+        nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+      }
+
+      if (nextIndex === null) {
+        return;
+      }
+
+      event.preventDefault();
+      selectAndFocusTab(nextIndex);
+    },
+    [orientation, selectAndFocusTab, tabs],
+  );
+
+  return { handleTabKeyDown, setTabButtonRef };
+}
+
 function WorkspaceToolTabStrip({
   activeTabId,
   tabs,
@@ -791,8 +864,14 @@ function WorkspaceToolTabStrip({
   onAddBrowserTab: () => void;
   onAddTerminalTab: () => void;
   onCloseDynamicTab: (tab: WorkspaceToolSurfaceDynamicTab) => void;
-  onSelectTab: (tabId: string) => void;
+  onSelectTab: WorkspaceToolTabSelectHandler;
 }) {
+  const { handleTabKeyDown, setTabButtonRef } = useWorkspaceToolTabKeyboard({
+    onSelectTab,
+    orientation: "horizontal",
+    tabs,
+  });
+
   return (
     <div
       aria-label="Workspace tool tabs"
@@ -822,8 +901,13 @@ function WorkspaceToolTabStrip({
                   "flex h-full min-w-0 flex-1 items-center gap-1.5 px-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/30",
                   tab.pinned && "justify-center",
                 )}
-                onClick={() => onSelectTab(tab.id)}
+                onClick={() => {
+                  void onSelectTab(tab.id);
+                }}
+                onKeyDown={(event) => handleTabKeyDown(event, tab.id)}
+                ref={(button) => setTabButtonRef(tab.id, button)}
                 role="tab"
+                tabIndex={active ? 0 : -1}
                 title={tab.title}
                 type="button"
               >
@@ -840,6 +924,7 @@ function WorkspaceToolTabStrip({
                     event.stopPropagation();
                     onCloseDynamicTab(dynamicTab);
                   }}
+                  tabIndex={active ? 0 : -1}
                   title={`Close ${tab.title}`}
                   type="button"
                 >
@@ -871,8 +956,14 @@ function WorkspaceToolVerticalTabSidebar({
   onAddBrowserTab: () => void;
   onAddTerminalTab: () => void;
   onCloseDynamicTab: (tab: WorkspaceToolSurfaceDynamicTab) => void;
-  onSelectTab: (tabId: string) => void;
+  onSelectTab: WorkspaceToolTabSelectHandler;
 }) {
+  const { handleTabKeyDown, setTabButtonRef } = useWorkspaceToolTabKeyboard({
+    onSelectTab,
+    orientation: "vertical",
+    tabs,
+  });
+
   return (
     <div
       aria-label="Workspace tool tabs"
@@ -906,8 +997,13 @@ function WorkspaceToolVerticalTabSidebar({
               <button
                 aria-selected={active}
                 className="flex h-full min-w-0 flex-1 items-center gap-2 px-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
-                onClick={() => onSelectTab(tab.id)}
+                onClick={() => {
+                  void onSelectTab(tab.id);
+                }}
+                onKeyDown={(event) => handleTabKeyDown(event, tab.id)}
+                ref={(button) => setTabButtonRef(tab.id, button)}
                 role="tab"
+                tabIndex={active ? 0 : -1}
                 title={tab.title}
                 type="button"
               >
@@ -922,6 +1018,7 @@ function WorkspaceToolVerticalTabSidebar({
                     event.stopPropagation();
                     onCloseDynamicTab(dynamicTab);
                   }}
+                  tabIndex={active ? 0 : -1}
                   title={`Close ${tab.title}`}
                   type="button"
                 >
@@ -1037,6 +1134,7 @@ function WorkspaceToolContent({
   activeTabId,
   api,
   root,
+  surfaceActive,
   onBrowserTabChange,
   onOpenFile,
 }: {
@@ -1044,6 +1142,7 @@ function WorkspaceToolContent({
   activeTabId: string;
   api: ApiClient;
   root: string;
+  surfaceActive: boolean;
   onBrowserTabChange: (
     updater: (
       current: WorkspaceToolSurfaceSnapshot,
@@ -1067,7 +1166,7 @@ function WorkspaceToolContent({
     case "browser":
       return (
         <WorkspaceBrowserTabContent
-          active
+          active={surfaceActive}
           tab={activeDynamicTab}
           onBrowserTabChange={onBrowserTabChange}
         />
@@ -1094,6 +1193,7 @@ function WorkspaceToolWideContent({
   activeTabId,
   api,
   root,
+  surfaceActive,
   onBrowserTabChange,
   onOpenFile,
 }: {
@@ -1101,6 +1201,7 @@ function WorkspaceToolWideContent({
   activeTabId: string;
   api: ApiClient;
   root: string;
+  surfaceActive: boolean;
   onBrowserTabChange: (
     updater: (
       current: WorkspaceToolSurfaceSnapshot,
@@ -1121,6 +1222,7 @@ function WorkspaceToolWideContent({
       activeTabId={activeTabId}
       api={api}
       root={root}
+      surfaceActive={surfaceActive}
       onBrowserTabChange={onBrowserTabChange}
       onOpenFile={onOpenFile}
     />
@@ -1151,7 +1253,7 @@ function useWorkspaceWideFileOpener(api: ApiClient) {
 
       void queryClient
         .fetchQuery({
-          queryFn: () => api.workspaceTools.readFile({ path, root }),
+          queryFn: async () => api.workspaceTools.readFile({ path, root }),
           queryKey: queryKeys.workspaceTools.readFile(root, path),
           retry: false,
           staleTime: 5_000,
@@ -1261,7 +1363,7 @@ function WorkspaceWideFilesPanel({
     isWorkspaceWideFileStateDirty(fileStates[path]),
   );
   const saveFileMutation = useMutation({
-    mutationFn: (input: { content: string; path: string }) =>
+    mutationFn: async (input: { content: string; path: string }) =>
       api.workspaceTools.writeFile({
         content: input.content,
         path: input.path,
@@ -1468,7 +1570,9 @@ function WorkspaceWideFilesPanel({
           activePath={activePath}
           fileStates={fileStates}
           openFilePaths={openFilePaths}
-          onClose={closeFile}
+          onClose={(path) => {
+            void closeFile(path);
+          }}
           onContentChange={updateActiveFileContent}
           onSelect={selectFile}
         />
@@ -1490,7 +1594,7 @@ function useWorkspaceFileTreeModel(api: ApiClient, root: string) {
     search: false,
   });
   const treeQuery = useQuery({
-    queryFn: () => api.workspaceTools.fileTree({ root }),
+    queryFn: async () => api.workspaceTools.fileTree({ root }),
     queryKey: queryKeys.workspaceTools.fileTree(root),
     retry: false,
     staleTime: 10_000,
@@ -1711,7 +1815,7 @@ function useWorkspaceGitPanelState(api: ApiClient, root: string) {
     Record<string, boolean>
   >({});
   const commitMutation = useMutation({
-    mutationFn: (input: {
+    mutationFn: async (input: {
       description?: string;
       paths: string[];
       root: string;
@@ -1730,7 +1834,7 @@ function useWorkspaceGitPanelState(api: ApiClient, root: string) {
     },
   });
   const gitQuery = useQuery({
-    queryFn: () => api.workspaceTools.gitDiff({ root }),
+    queryFn: async () => api.workspaceTools.gitDiff({ root }),
     queryKey: queryKeys.workspaceTools.gitDiff(root),
     retry: false,
     staleTime: 5_000,
@@ -2071,7 +2175,7 @@ function WorkspaceFilePreview({
   tab: Extract<WorkspaceToolSurfaceDynamicTab, { kind: "file-preview" }>;
 }) {
   const fileQuery = useQuery({
-    queryFn: () =>
+    queryFn: async () =>
       api.workspaceTools.readFile({
         path: tab.path,
         root: tab.root,
@@ -2110,7 +2214,7 @@ function WorkspaceGitDiffTool({
   tab: Extract<WorkspaceToolSurfaceDynamicTab, { kind: "git-diff" }>;
 }) {
   const gitQuery = useQuery({
-    queryFn: () => api.workspaceTools.gitDiff({ root: tab.root }),
+    queryFn: async () => api.workspaceTools.gitDiff({ root: tab.root }),
     queryKey: queryKeys.workspaceTools.gitDiff(tab.root),
     retry: false,
     staleTime: 5_000,
@@ -2683,7 +2787,7 @@ function WorkspaceToolFileDiff({
   preloadKey: string;
 }) {
   const preloadQuery = useQuery({
-    queryFn: () => preloadWorkspaceToolFileDiffHighlighter(fileDiff),
+    queryFn: async () => preloadWorkspaceToolFileDiffHighlighter(fileDiff),
     queryKey: [
       "workspace-tool-file-diff-highlighter",
       preloadKey,
@@ -2735,9 +2839,9 @@ async function preloadWorkspaceToolFileDiffHighlighter(
   );
 
   await Promise.all(
-    [...languages].map((language) =>
-      preloadHighlighter(getHighlighterOptions(language, diffOptions)),
-    ),
+    [...languages].map(async (language) => {
+      await preloadHighlighter(getHighlighterOptions(language, diffOptions));
+    }),
   );
 
   return true;
@@ -2815,10 +2919,98 @@ function getClickedFileTreePath(event: ReactMouseEvent<HTMLElement>) {
   return null;
 }
 
-function confirmDiscardWorkspaceToolFileChanges(dirty: boolean) {
-  return (
-    !dirty ||
-    window.confirm("This file has unsaved changes. Discard them and continue?")
+async function confirmWorkspaceWideFilesExit({
+  api,
+  queryClient,
+  root,
+}: {
+  api: ApiClient;
+  queryClient: QueryClient;
+  root: string | null;
+}) {
+  if (!root) {
+    return true;
+  }
+
+  let didWriteFile = false;
+  for (const path of getDirtyWorkspaceWideFilePaths(root)) {
+    const state =
+      useWorkspaceToolStore.getState().wideFilesByRoot[root]?.fileStates[path];
+    if (!isWorkspaceWideFileStateDirty(state) || state.status !== "text") {
+      continue;
+    }
+
+    const action = await window.desktopWindow.confirmSaveWorkspaceFileChanges({
+      path,
+    });
+    if (action === "cancel") {
+      return false;
+    }
+    if (action === "discard") {
+      useWorkspaceToolStore.getState().setWideFileDraftContent({
+        content: state.savedContent,
+        path,
+        root,
+      });
+      continue;
+    }
+
+    try {
+      const result = await api.workspaceTools.writeFile({
+        content: state.draftContent,
+        path,
+        root,
+      });
+      didWriteFile = true;
+      useWorkspaceToolStore.getState().setWideFileSavedContent({
+        content: state.draftContent,
+        path,
+        root,
+        size: result.size,
+      });
+      queryClient.setQueryData<WorkspaceFileReadResult>(
+        queryKeys.workspaceTools.readFile(root, path),
+        {
+          content: state.draftContent,
+          path,
+          root,
+          size: result.size,
+          type: "text",
+        },
+      );
+    } catch (error: unknown) {
+      console.error("Failed to save workspace file before leaving editor.", {
+        error,
+        path,
+        root,
+      });
+      return false;
+    }
+  }
+
+  if (didWriteFile) {
+    void queryClient.invalidateQueries({
+      queryKey: queryKeys.workspaceTools.fileTree(root),
+    });
+    void queryClient.invalidateQueries({
+      queryKey: queryKeys.workspaceTools.gitDiff(root),
+    });
+  }
+
+  if (getDirtyWorkspaceWideFilePaths(root).length === 0) {
+    useWorkspaceToolStore.getState().setWideFilesEditorDirty(false);
+  }
+  return true;
+}
+
+function getDirtyWorkspaceWideFilePaths(root: string) {
+  const wideFilesState = useWorkspaceToolStore.getState().wideFilesByRoot[root];
+  if (!wideFilesState) {
+    return [];
+  }
+
+  return wideFilesState.openFilePaths.filter((path) =>
+    isWorkspaceWideFileStateDirty(wideFilesState.fileStates[path]),
   );
 }
 
@@ -2997,6 +3189,8 @@ function formatUnsupportedFileReason(
   switch (result.reason) {
     case "binary":
       return "Binary file";
+    case "not-file":
+      return "Not a file";
     case "too-large":
       return result.size === undefined
         ? "File is too large"

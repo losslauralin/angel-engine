@@ -46,6 +46,7 @@ import {
   getWorkspaceTitle,
 } from "@/app/workspace/workspace-display";
 import { WorkspaceHeader } from "@/app/workspace/workspace-header";
+import { WorkspaceRightSidebar } from "@/app/workspace/workspace-right-sidebar";
 import {
   chatNotificationRoutePath,
   chatRoutePath,
@@ -64,7 +65,6 @@ import {
   WorkspaceSidebarControl,
   WorkspaceSidebarControlPortalProvider,
 } from "@/app/workspace/workspace-sidebar-control";
-import { WorkspaceRightSidebar } from "@/app/workspace/workspace-right-sidebar";
 import {
   WorkspaceToolContextBridge,
   WorkspaceToolDialogHost,
@@ -72,11 +72,6 @@ import {
 } from "@/app/workspace/workspace-tool-host";
 import { useWorkspaceToolStore } from "@/app/workspace/workspace-tool-store";
 import { useWorkspaceUiStore } from "@/app/workspace/workspace-ui-store";
-import {
-  SidebarInset,
-  SidebarProvider,
-  useSidebar,
-} from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -86,6 +81,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  SidebarInset,
+  SidebarProvider,
+  useSidebar,
+} from "@/components/ui/sidebar";
 import { useToast } from "@/components/ui/toast";
 import {
   archiveChatMutationOptions,
@@ -920,7 +920,7 @@ function WorkspacePageContent({
   );
 
   const confirmDirtyWorktree = useCallback(
-    (status: ProjectGitStatusResult) =>
+    async (status: ProjectGitStatusResult) =>
       new Promise<boolean>((resolve) => {
         setRememberWorktreeDirtyChoice(false);
         setWorktreeDirtyPrompt({ resolve, status });
@@ -1209,6 +1209,7 @@ function WorkspacePageContent({
               </section>
               {dockedWorkspaceToolContext ? (
                 <WorkspaceRightSidebar
+                  active={workspaceToolHost === "sidebar"}
                   api={api}
                   chatId={dockedWorkspaceToolContext.chatId}
                   open={rightSidebarOpen}

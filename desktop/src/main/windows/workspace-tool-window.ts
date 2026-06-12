@@ -1,3 +1,4 @@
+import type { WorkspaceToolContextSetInput } from "../../shared/workspace-tool-instances";
 import type {
   WorkspaceToolSurfaceContext,
   WorkspaceToolSurfaceContextSetInput,
@@ -7,7 +8,6 @@ import type {
   WorkspaceToolSurfaceSnapshotSetInput,
   WorkspaceToolSurfaceState,
 } from "../../shared/workspace-tool-surface";
-import type { WorkspaceToolContextSetInput } from "../../shared/workspace-tool-instances";
 
 import path from "node:path";
 import { BrowserWindow, ipcMain, screen } from "electron";
@@ -54,8 +54,11 @@ export function registerWorkspaceToolWindowIpc() {
 
   ipcMain.on(
     DESKTOP_WORKSPACE_TOOL_SURFACE_HOST_SET_CHANNEL,
-    (_event, input: WorkspaceToolSurfaceHostSetInput) => {
-      setWorkspaceToolSurfaceHost(input.host);
+    (event, input: WorkspaceToolSurfaceHostSetInput) => {
+      setWorkspaceToolSurfaceHost(
+        input.host,
+        BrowserWindow.fromWebContents(event.sender) ?? undefined,
+      );
     },
   );
 
@@ -89,11 +92,17 @@ function registerLegacyWorkspaceToolIpc() {
       });
     },
   );
-  ipcMain.on(DESKTOP_WORKSPACE_TOOL_WINDOW_OPEN_CHANNEL, () => {
-    setWorkspaceToolSurfaceHost("window");
+  ipcMain.on(DESKTOP_WORKSPACE_TOOL_WINDOW_OPEN_CHANNEL, (event) => {
+    setWorkspaceToolSurfaceHost(
+      "window",
+      BrowserWindow.fromWebContents(event.sender) ?? undefined,
+    );
   });
-  ipcMain.on(DESKTOP_WORKSPACE_TOOL_DIALOG_OPEN_CHANNEL, () => {
-    setWorkspaceToolSurfaceHost("dialog");
+  ipcMain.on(DESKTOP_WORKSPACE_TOOL_DIALOG_OPEN_CHANNEL, (event) => {
+    setWorkspaceToolSurfaceHost(
+      "dialog",
+      BrowserWindow.fromWebContents(event.sender) ?? undefined,
+    );
   });
   ipcMain.on(DESKTOP_WORKSPACE_TOOL_INSTANCE_REGISTER_CHANNEL, () => {});
   ipcMain.on(DESKTOP_WORKSPACE_TOOL_INSTANCE_CLOSE_CHANNEL, () => {});
@@ -112,10 +121,13 @@ function setWorkspaceToolSurfaceContext(context: WorkspaceToolSurfaceContext) {
   broadcastWorkspaceToolSurfaceState();
 }
 
-function setWorkspaceToolSurfaceHost(host: WorkspaceToolSurfaceHost) {
+function setWorkspaceToolSurfaceHost(
+  host: WorkspaceToolSurfaceHost,
+  sourceWindow?: BrowserWindow,
+) {
   if (host === "window") {
     workspaceToolHost = "window";
-    ensureWorkspaceToolWindow();
+    ensureWorkspaceToolWindow(sourceWindow);
     broadcastWorkspaceToolSurfaceState();
     return;
   }
@@ -131,7 +143,7 @@ function focusWorkspaceToolSurface() {
   }
 }
 
-function ensureWorkspaceToolWindow() {
+function ensureWorkspaceToolWindow(sourceWindow?: BrowserWindow) {
   const existingWindow = workspaceToolWindow;
   if (existingWindow && !existingWindow.isDestroyed()) {
     existingWindow.setTitle(workspaceToolWindowTitle());
@@ -140,7 +152,7 @@ function ensureWorkspaceToolWindow() {
     return existingWindow;
   }
 
-  const defaultBounds = defaultWorkspaceToolWindowBounds();
+  const defaultBounds = defaultWorkspaceToolWindowBounds(sourceWindow);
   const window = createDesktopWindow({
     bounds: {
       defaultBounds,
@@ -177,8 +189,8 @@ function ensureWorkspaceToolWindow() {
   return window;
 }
 
-function defaultWorkspaceToolWindowBounds() {
-  const { workArea } = screen.getPrimaryDisplay();
+function defaultWorkspaceToolWindowBounds(sourceWindow?: BrowserWindow) {
+  const { workArea } = workspaceToolWindowDisplay(sourceWindow);
   const width = clampWorkspaceToolWindowDimension(
     Math.round(workArea.width * 0.94),
     workspaceToolWindowMinimumBounds.width,
@@ -196,6 +208,19 @@ function defaultWorkspaceToolWindowBounds() {
     x: workArea.x + Math.round((workArea.width - width) / 2),
     y: workArea.y + Math.round((workArea.height - height) / 2),
   };
+}
+
+function workspaceToolWindowDisplay(sourceWindow?: BrowserWindow) {
+  if (sourceWindow && !sourceWindow.isDestroyed()) {
+    return screen.getDisplayMatching(sourceWindow.getBounds());
+  }
+
+  const focusedWindow = BrowserWindow.getFocusedWindow();
+  if (focusedWindow && !focusedWindow.isDestroyed()) {
+    return screen.getDisplayMatching(focusedWindow.getBounds());
+  }
+
+  return screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
 }
 
 function clampWorkspaceToolWindowDimension(
