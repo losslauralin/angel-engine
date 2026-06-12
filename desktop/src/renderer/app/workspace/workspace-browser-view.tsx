@@ -1,11 +1,15 @@
-import type { WorkspaceBrowserState } from "@shared/workspace-browser";
+import type {
+  WorkspaceBrowserBounds,
+  WorkspaceBrowserState,
+} from "@shared/workspace-browser";
+import type { FormEvent } from "react";
 
 import {
   RiArrowLeftLine as ArrowLeft,
   RiArrowRightLine as ArrowRight,
   RiRefreshLine as Refresh,
 } from "@remixicon/react";
-import { type FormEvent, useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,90 +32,85 @@ export function WorkspaceBrowserNativeView({
   const propsRef = useRef({ browserViewId, onStateChange, url });
   propsRef.current = { browserViewId, onStateChange, url };
 
-  const setContainer = useCallback(
-    (container: HTMLDivElement | null) => {
-      cleanupRef.current();
-      cleanupRef.current = () => {};
+  const setContainer = useCallback((container: HTMLDivElement | null) => {
+    cleanupRef.current();
+    cleanupRef.current = () => {};
 
-      if (!container) {
-        return;
-      }
+    if (!container) {
+      return;
+    }
 
-      const attachmentId = crypto.randomUUID();
-      let disposed = false;
-      const currentProps = propsRef.current;
-      const emitState = (state: WorkspaceBrowserState) => {
-        propsRef.current.onStateChange?.(state);
-      };
-      const updateBounds = () => {
+    const attachmentId = crypto.randomUUID();
+    let disposed = false;
+    const currentProps = propsRef.current;
+    const emitState = (state: WorkspaceBrowserState) => {
+      propsRef.current.onStateChange?.(state);
+    };
+    let stopTrackingBounds = () => {};
+    const unsubscribe = window.workspaceBrowser.onEvent(
+      currentProps.browserViewId,
+      (event) => {
+        emitState(event.state);
+      },
+    );
+    void window.workspaceBrowser
+      .create({
+        browserViewId: currentProps.browserViewId,
+        url: currentProps.url,
+      })
+      .then(async (state) => {
+        if (disposed) {
+          return;
+        }
+        emitState(state);
         const bounds = readWorkspaceBrowserBounds(container);
-        void window.workspaceBrowser.setBounds({
+        const nextState = await window.workspaceBrowser.attach({
           attachmentId,
           bounds,
           browserViewId: currentProps.browserViewId,
         });
-      };
-      const unsubscribe = window.workspaceBrowser.onEvent(
-        currentProps.browserViewId,
-        (event) => {
-          emitState(event.state);
-        },
-      );
-      const resizeObserver = new ResizeObserver(updateBounds);
-
-      resizeObserver.observe(container);
-      void window.workspaceBrowser
-        .create({
-          browserViewId: currentProps.browserViewId,
-          url: currentProps.url,
-        })
-        .then((state) => {
-          if (disposed) {
-            return;
-          }
-          emitState(state);
-          return window.workspaceBrowser.attach({
+        return { bounds, state: nextState };
+      })
+      .then((result) => {
+        if (!disposed && result !== undefined) {
+          emitState(result.state);
+          stopTrackingBounds = trackWorkspaceBrowserBounds({
             attachmentId,
-            bounds: readWorkspaceBrowserBounds(container),
             browserViewId: currentProps.browserViewId,
+            container,
+            initialBounds: result.bounds,
           });
+        }
+      })
+      .catch((error: unknown) => {
+        console.error("Failed to attach workspace browser view.", {
+          browserViewId: currentProps.browserViewId,
+          error,
+        });
+      });
+
+    cleanupRef.current = () => {
+      disposed = true;
+      stopTrackingBounds();
+      unsubscribe();
+      void window.workspaceBrowser
+        .detach({
+          attachmentId,
+          browserViewId: currentProps.browserViewId,
         })
-        .then((state) => {
-          if (!disposed && state) {
-            emitState(state);
-          }
-        })
-        .catch((error) => {
-          console.error("Failed to attach workspace browser view.", {
+        .catch((error: unknown) => {
+          console.error("Failed to detach workspace browser view.", {
             browserViewId: currentProps.browserViewId,
             error,
           });
         });
-
-      cleanupRef.current = () => {
-        disposed = true;
-        resizeObserver.disconnect();
-        unsubscribe();
-        void window.workspaceBrowser
-          .detach({
-            attachmentId,
-            browserViewId: currentProps.browserViewId,
-          })
-          .catch((error) => {
-            console.error("Failed to detach workspace browser view.", {
-              browserViewId: currentProps.browserViewId,
-              error,
-            });
-          });
-      };
-    },
-    [browserViewId],
-  );
+    };
+  }, []);
 
   return (
     <div
       className={cn(
-        "h-full min-h-0 w-full overflow-hidden bg-background",
+        "size-full min-h-0 overflow-hidden bg-background",
         className,
       )}
       ref={active ? setContainer : undefined}
@@ -227,7 +226,7 @@ export function normalizeWorkspaceBrowserUrl(input: string) {
   const trimmed = input.trim();
   if (!trimmed) return "about:blank";
   if (trimmed === "about:blank") return trimmed;
-  if (/^[a-zA-Z][a-zA-Z\d+.-]*:/.test(trimmed)) return trimmed;
+  if (/^[a-z][a-z\d+.-]*:/i.test(trimmed)) return trimmed;
   return `https://${trimmed}`;
 }
 
@@ -247,12 +246,161 @@ export function browserTitleFromUrl(url: string) {
 }
 
 function readWorkspaceBrowserBounds(container: HTMLElement) {
-  const rect = container.getBoundingClientRect();
+  const rect = readVisibleWorkspaceBrowserRect(container);
 
   return {
-    height: Math.max(1, Math.round(rect.height)),
-    width: Math.max(1, Math.round(rect.width)),
-    x: Math.round(rect.x),
-    y: Math.round(rect.y),
+    height: Math.max(1, Math.round(rect.bottom - rect.top)),
+    width: Math.max(1, Math.round(rect.right - rect.left)),
+    x: Math.round(rect.left),
+    y: Math.round(rect.top),
   };
+}
+
+interface WorkspaceBrowserRect {
+  bottom: number;
+  left: number;
+  right: number;
+  top: number;
+}
+
+function readVisibleWorkspaceBrowserRect(container: HTMLElement) {
+  let rect = toWorkspaceBrowserRect(container.getBoundingClientRect());
+  for (
+    let ancestor = container.parentElement;
+    ancestor;
+    ancestor = ancestor.parentElement
+  ) {
+    rect = clipWorkspaceBrowserRectToAncestor(rect, ancestor);
+  }
+
+  return intersectWorkspaceBrowserRects(rect, {
+    bottom: window.innerHeight,
+    left: 0,
+    right: window.innerWidth,
+    top: 0,
+  });
+}
+
+function toWorkspaceBrowserRect(rect: DOMRect): WorkspaceBrowserRect {
+  return {
+    bottom: rect.bottom,
+    left: rect.left,
+    right: rect.right,
+    top: rect.top,
+  };
+}
+
+function intersectWorkspaceBrowserRects(
+  left: WorkspaceBrowserRect,
+  right: WorkspaceBrowserRect,
+): WorkspaceBrowserRect {
+  const nextLeft = Math.max(left.left, right.left);
+  const nextTop = Math.max(left.top, right.top);
+  const nextRight = Math.max(nextLeft, Math.min(left.right, right.right));
+  const nextBottom = Math.max(nextTop, Math.min(left.bottom, right.bottom));
+
+  return {
+    bottom: nextBottom,
+    left: nextLeft,
+    right: nextRight,
+    top: nextTop,
+  };
+}
+
+function clipWorkspaceBrowserRectToAncestor(
+  rect: WorkspaceBrowserRect,
+  ancestor: HTMLElement,
+) {
+  const ancestorRect = toWorkspaceBrowserRect(ancestor.getBoundingClientRect());
+  const style = window.getComputedStyle(ancestor);
+  const clipsX =
+    clipsWorkspaceBrowserOverflow(style.overflowX) ||
+    clipsWorkspaceBrowserOverflow(style.overflow);
+  const clipsY =
+    clipsWorkspaceBrowserOverflow(style.overflowY) ||
+    clipsWorkspaceBrowserOverflow(style.overflow);
+  const nextLeft = clipsX ? Math.max(rect.left, ancestorRect.left) : rect.left;
+  const nextRight = clipsX
+    ? Math.max(nextLeft, Math.min(rect.right, ancestorRect.right))
+    : rect.right;
+  const nextTop = clipsY ? Math.max(rect.top, ancestorRect.top) : rect.top;
+  const nextBottom = clipsY
+    ? Math.max(nextTop, Math.min(rect.bottom, ancestorRect.bottom))
+    : rect.bottom;
+
+  return {
+    bottom: nextBottom,
+    left: nextLeft,
+    right: nextRight,
+    top: nextTop,
+  };
+}
+
+function clipsWorkspaceBrowserOverflow(value: string) {
+  return (
+    value === "auto" ||
+    value === "clip" ||
+    value === "hidden" ||
+    value === "scroll"
+  );
+}
+
+function trackWorkspaceBrowserBounds({
+  attachmentId,
+  browserViewId,
+  container,
+  initialBounds,
+}: {
+  attachmentId: string;
+  browserViewId: string;
+  container: HTMLElement;
+  initialBounds: WorkspaceBrowserBounds;
+}) {
+  let animationFrame = 0;
+  let disposed = false;
+  let lastBounds = initialBounds;
+
+  const tick = () => {
+    if (disposed) {
+      return;
+    }
+
+    const bounds = readWorkspaceBrowserBounds(container);
+    if (!areWorkspaceBrowserBoundsEqual(bounds, lastBounds)) {
+      lastBounds = bounds;
+      void window.workspaceBrowser
+        .setBounds({
+          attachmentId,
+          bounds,
+          browserViewId,
+        })
+        .catch((error: unknown) => {
+          console.error("Failed to update workspace browser bounds.", {
+            browserViewId,
+            error,
+          });
+        });
+    }
+
+    animationFrame = window.requestAnimationFrame(tick);
+  };
+
+  animationFrame = window.requestAnimationFrame(tick);
+
+  return () => {
+    disposed = true;
+    window.cancelAnimationFrame(animationFrame);
+  };
+}
+
+function areWorkspaceBrowserBoundsEqual(
+  left: WorkspaceBrowserBounds,
+  right: WorkspaceBrowserBounds,
+) {
+  return (
+    left.height === right.height &&
+    left.width === right.width &&
+    left.x === right.x &&
+    left.y === right.y
+  );
 }
