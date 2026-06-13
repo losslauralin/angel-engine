@@ -11,11 +11,16 @@ use std::os::windows::process::CommandExt;
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
+#[cfg(windows)]
 fn create_command(program: impl AsRef<OsStr>) -> Command {
     let mut cmd = Command::new(program);
-    #[cfg(windows)]
     cmd.creation_flags(CREATE_NO_WINDOW);
     cmd
+}
+
+#[cfg(not(windows))]
+fn create_command(program: impl AsRef<OsStr>) -> Command {
+    Command::new(program)
 }
 
 pub struct RuntimeProcess {

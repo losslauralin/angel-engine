@@ -801,9 +801,9 @@ function ElicitationQuestionInput({
       <div>
         {is.nonEmptyString(question.header) ? (
           <div
-            className="
-            text-[11px] font-medium text-muted-foreground uppercase
-          "
+            className={cn(
+              "text-[11px] font-medium text-muted-foreground uppercase",
+            )}
           >
             {question.header}
           </div>
@@ -1209,9 +1209,9 @@ function ElicitationQuestionCard({
         <div className="min-w-0 flex-1">
           <div className="truncate font-medium">{title}</div>
           <div
-            className="
-            mt-0.5 flex items-center gap-1.5 text-muted-foreground
-          "
+            className={cn(
+              "mt-0.5 flex items-center gap-1.5 text-muted-foreground",
+            )}
           >
             <span>{formatElicitationKind(elicitation.kind, t)}</span>
             <span aria-hidden>·</span>

@@ -382,7 +382,9 @@ function AssistantComposerHeader({
   }
 
   return (
-    <PromptInputHeader className="flex-col items-stretch gap-2 px-3! pt-3! pb-2!">
+    <PromptInputHeader
+      className={cn("flex-col items-stretch gap-2 px-3! pt-3! pb-2!")}
+    >
       {hasQuote ? (
         <ComposerPrimitive.Quote
           className="
@@ -392,7 +394,9 @@ function AssistantComposerHeader({
           "
         >
           <Quote className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-          <ComposerPrimitive.QuoteText className="line-clamp-2 flex-1 text-muted-foreground" />
+          <ComposerPrimitive.QuoteText
+            className={cn("line-clamp-2 flex-1 text-muted-foreground")}
+          />
           <ComposerPrimitive.QuoteDismiss className={iconButtonClass}>
             <X className="size-3.5" />
           </ComposerPrimitive.QuoteDismiss>
@@ -514,7 +518,11 @@ function SlashCommandAssistPanel({
   if (loading) {
     return (
       <AssistPanelFrame title={t("composer.commands")}>
-        <div className="flex items-center gap-2 p-2 text-sm text-muted-foreground">
+        <div
+          className={cn(
+            "flex items-center gap-2 p-2 text-sm text-muted-foreground",
+          )}
+        >
           <Loader2 className="size-3.5 animate-spin" />
           <span>{t("composer.loadingCommands")}</span>
         </div>

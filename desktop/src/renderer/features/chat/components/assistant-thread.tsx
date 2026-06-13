@@ -16,6 +16,7 @@ import {
   UserMessage,
 } from "@/features/chat/components/messages";
 import { workspaceContentColumnClass } from "@/features/chat/components/thread-styles";
+import { cn } from "@/platform/utils";
 
 export function AssistantThread({
   composerFloatingAccessory,
@@ -114,9 +115,9 @@ function EmptyThread({ projectName }: { projectName?: string }) {
       <div className="w-full max-w-136">
         <div className="min-w-0 text-center select-none">
           <h2
-            className="
-            text-2xl/tight font-semibold text-pretty text-foreground
-          "
+            className={cn(
+              "text-2xl/tight font-semibold text-pretty text-foreground",
+            )}
           >
             {is.nonEmptyString(projectName) ? (
               <Trans
@@ -140,9 +141,9 @@ function EmptyThread({ projectName }: { projectName?: string }) {
 function SketchUnderline({ children }: { children?: ReactNode }) {
   return (
     <span
-      className="
-      relative inline-block max-w-full align-baseline text-primary
-    "
+      className={cn(
+        "relative inline-block max-w-full align-baseline text-primary",
+      )}
     >
       <span className="relative z-10 wrap-break-word">{children}</span>
       <svg

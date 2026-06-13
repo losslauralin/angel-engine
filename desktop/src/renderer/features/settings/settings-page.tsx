@@ -600,7 +600,11 @@ function CustomAgentsSettingsGroup({
               <span className="block truncate text-sm font-medium">
                 {agent.label}
               </span>
-              <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+              <span
+                className={cn(
+                  "mt-0.5 block truncate text-xs text-muted-foreground",
+                )}
+              >
                 {[agent.command, ...agent.args].join(" ")}
               </span>
             </span>
