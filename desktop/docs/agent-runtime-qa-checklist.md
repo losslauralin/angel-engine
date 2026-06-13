@@ -15,8 +15,10 @@ Electron CDP target 后按 snapshot/ref 工作流执行；不要直接打开 Vit
 
 - 用户能在 `New chat`、standalone chat、project chat 三种入口稳定选择并使用该
   agent。
-- agent 的 model、reasoning effort、agent mode、permission mode、tool/permission/input 能力来自
-  engine/client snapshot，而不是 desktop 侧硬编码。
+- Chat/Work mode、workspace tool sidebar/dialog/window、project Files/Git 面板不会
+  破坏当前 agent 的 route、cwd、running 状态或 open elicitation。
+- agent 的 model、reasoning effort、agent mode、permission mode、
+  tool/permission/input 能力来自 engine/client snapshot，而不是 desktop 侧硬编码。
 - `Plan` / `Build` 快捷切换必须按当前 runtime 的 snapshot 选择正确通道：有些 agent
   通过 agent mode 实现 plan，有些通过 permission mode 实现 plan，不能在 desktop 侧
   假设二者等价。
@@ -34,7 +36,7 @@ Electron CDP target 后按 snapshot/ref 工作流执行；不要直接打开 Vit
 1. 安装依赖。
 
    ```sh
-   yarn --cwd desktop
+   pnpm install
    ```
 
 2. 如果改过 Rust engine/client、NAPI crate、snapshot/event/settings 类型，先重建
@@ -65,13 +67,11 @@ Electron CDP target 后按 snapshot/ref 工作流执行；不要直接打开 Vit
 5. 基础 gate。
 
    ```sh
-   npm --prefix desktop run typecheck
-   npm --prefix desktop run format:check
+   pnpm --filter desktop lint
+   pnpm --filter desktop typecheck
+   pnpm --filter desktop format:check
    git diff --check
    ```
-
-6. 当前 `npm --prefix desktop run lint` 依赖 ESLint 10，但仓库没有
-   `eslint.config.*`。在配置迁移前不要把它当 blocking gate。
 
 ## 结果记录位置
 
@@ -274,7 +274,9 @@ Agent 差异提示：
 - [ ] reasoning 内容存在时显示在 reasoning 区，不覆盖最终文本。
 - [ ] completed 后 reasoning/tool UI 不再显示 running 动画。
 - [ ] markdown、代码块、列表、链接、表格正常渲染。
-- [ ] message hover actions（copy/edit/quote 等高频 action）不报错。
+- [ ] hover assistant message 时 action bar 只保留 Copy，不显示 Speak、Helpful、
+      Not helpful、Export Markdown，也不显示 assistant-ui branch picker。
+- [ ] Copy 不报错，且复制内容与当前消息一致。
 - [ ] token usage、model、turn id 这类 metadata 如果 UI 显示，值来自 snapshot/run
       result。
 
@@ -287,14 +289,20 @@ Markdown table containing the filename and first line.
 
 ## 7. 文件编辑和 Project CWD
 
-覆盖：project route、cwd projection、Codex file edits、tool result、dirty file visibility。
+覆盖：project route、cwd projection、Codex file edits、tool result、dirty file visibility、
+Work Mode sidebar、workspace Files editor。
 
 - [ ] 创建 project 时取消 directory picker 不创建 project，也不报错。
 - [ ] 添加 `/tmp/angel-engine-agent-qa/project` 后 project 出现在 sidebar。
+- [ ] 切到 `Work` mode 后 project 可展开，并稳定显示已有 project chat；折叠再展开不
+      丢失子 chat 列表。
 - [ ] project chat route、header、sidebar active state 一致。
 - [ ] project chat 中发送消息时 runtime cwd 使用 project path。
 - [ ] 请求 agent 编辑 project 文件时，permission/工具/输出都绑定当前 project chat。
 - [ ] 编辑完成后磁盘文件实际改变，且 assistant message 说明改动。
+- [ ] 在 workspace Files 中打开被编辑文件，内容和磁盘一致；修改后通过 `Ctrl+S` /
+      `Cmd+S` 保存不会影响当前 agent run state。
+- [ ] 关闭未保存 workspace file tab 时系统 dialog 能阻止误丢改动。
 - [ ] standalone chat 不应默认使用 project cwd。
 - [ ] 删除 project 后 project chat 从 sidebar 消失；如果当前在 project route，回到安
       全页面。
@@ -376,7 +384,8 @@ Plan a two-step change for src/edit-me.txt. Do not edit files yet.
 
 ## 11. 多 Chat、后台和通知
 
-覆盖：active chat tracking、background run、attention state、click-to-open route。
+覆盖：active chat tracking、background run、attention state、click-to-open route、
+workspace tool host 切换。
 
 - [ ] chat A 运行中切到 chat B，chat A 在 sidebar 显示 running。
 - [ ] chat A 完成后有后台提示或系统通知；当前可见 active chat 不重复通知。
@@ -385,13 +394,20 @@ Plan a two-step change for src/edit-me.txt. Do not edit files yet.
 - [ ] 同时运行两个 Codex chat 时，输出、权限、取消互不串线。
 - [ ] cancel chat A 不影响 chat B。
 - [ ] chat B 切换 runtime config 不影响 chat A。
+- [ ] chat A 运行或等待 permission 时，打开/关闭 workspace tool sidebar、dialog 或
+      window 不改变 active chat id，不吞掉 permission/input 卡片。
+- [ ] Browser/Terminal/Files/Git tabs 的打开、切换、关闭不会把后台 agent 输出投影到
+      错误 chat。
 
 ## 12. Sidebar、Route 和 Chat 管理
 
-覆盖：router、active state、context menu、rename/delete、invalid route。
+覆盖：router、Chat/Work mode、active state、context menu、rename/delete、invalid route。
 
 - [ ] 点击 `New chat`、standalone chat、project chat、Settings 后 route/header/sidebar
       active 状态一致。
+- [ ] `Chat` mode 中 `New chat` 创建 standalone draft；`Work` mode 中有选中 project
+      时创建 project draft。
+- [ ] 切换 Chat/Work mode 不重置当前 agent selection、composer 输入或 active route。
 - [ ] 右键 Codex chat，`Rename` 后 sidebar/header 同步更新。
 - [ ] 删除非当前 chat 只移除对应 item，不影响当前 chat。
 - [ ] 删除当前 chat 后回到首页，运行态 session 被关闭或不再投影到 UI。

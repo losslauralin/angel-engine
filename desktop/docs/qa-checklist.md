@@ -14,7 +14,7 @@
 1. 安装依赖。
 
    ```sh
-   yarn --cwd desktop
+   pnpm install
    ```
 
 2. 如果改过 Rust engine/client、NAPI crate、snapshot/event/settings 类型，先重建 native client。
@@ -34,12 +34,11 @@
 4. 基础 gate。
 
    ```sh
-   npm --prefix desktop run typecheck
-   npm --prefix desktop run format:check
+   pnpm --filter desktop lint
+   pnpm --filter desktop typecheck
+   pnpm --filter desktop format:check
    git diff --check
    ```
-
-5. 当前 `npm --prefix desktop run lint` 依赖 ESLint 10，但仓库没有 `eslint.config.*`。在配置迁移前不要把它当 blocking gate。
 
 ## App 启动
 
@@ -54,7 +53,9 @@
 2. 期望：
    - Electron 窗口正常打开。
    - 首页显示 `New chat`、sidebar、composer。
-   - sidebar 显示 `Projects`、`Chats`、`Settings`。
+   - sidebar 顶部有 `Chat` / `Work` mode switcher。
+   - `Chat` mode 显示 standalone chats；`Work` mode 显示 projects。
+   - sidebar 底部显示 `Settings`。
    - 没有 blank page、Vite overlay、Electron crash overlay。
    - tooltip、toast、dialog 这类 portal 组件没有 provider missing error。
 
@@ -158,32 +159,97 @@
 
 ## Project 创建和 Project Chat
 
-覆盖：directory picker、project DB、project route、project chat cwd、sidebar project section。
+覆盖：directory picker、project DB、project route、project chat cwd、Work Mode sidebar project section。
 
-1. 点击 `Projects` 的添加按钮。
-2. 取消 directory picker。
-3. 期望不创建 project，不报错。
-4. 再次添加 `/tmp/angel-engine-qa/project`。
-5. 期望 project 出现在 sidebar，名称和 tooltip 正确。
-6. 在 project 下创建 chat 并发送消息。
-7. 期望：
+1. 切到 sidebar `Work` mode。
+2. 点击 project section 的添加按钮。
+3. 取消 directory picker。
+4. 期望不创建 project，不报错。
+5. 再次添加 `/tmp/angel-engine-qa/project`。
+6. 期望 project 出现在 Work Mode sidebar，名称和 tooltip 正确。
+7. 在 project 下创建 chat 并发送消息。
+8. 期望：
    - route 是 project chat route。
-   - chat 显示在 project 下，不出现在 standalone Chats。
+   - chat 显示在 project 下，不出现在 `Chat` mode 的 standalone list。
    - runtime cwd 使用 project path。
-8. 删除 project。
-9. 期望 project 和其 chat 从 sidebar 消失；如果当前正在该 project route，回到首页。
+9. 折叠再展开 project。
+10. 期望已有 project chat 仍然可见，不需要切换页面才能重新出现。
+11. 在 `Chat` / `Work` mode 间切换，再回到 `Work`。
+12. 期望 project 展开状态和子 chat 列表稳定，不出现空展开区。
+13. 删除 project。
+14. 期望 project 和其 chat 从 sidebar 消失；如果当前正在该 project route，回到首页。
 
 ## Sidebar 和导航
 
-覆盖：router、workspace shell、chat/project active state、context menu、settings route。
+覆盖：router、workspace shell、Chat/Work mode、chat/project active state、context menu、settings route。
 
-1. 点击 `New chat`、已有 chat、project chat、Settings。
+1. 点击 `New chat`、已有 standalone chat、project chat、Settings。
 2. 期望 route、header、sidebar active 状态一致。
-3. 右键 chat，验证 Rename 和 Delete。
-4. 期望重命名后 sidebar/header 同步；删除当前 chat 后回到首页。
-5. 访问不存在的 route 或不存在的 chat id。
-6. 期望回到安全页面，不出现 blank page。
-7. 后台 chat 完成或等待输入时，sidebar/header 有可见提示；打开该 chat 后提示清除。
+3. 在 `Chat` mode 和 `Work` mode 间切换。
+4. 期望 mode switcher 状态、列表内容和 `New chat` 创建位置一致：
+   - `Chat` mode 下 `New chat` 创建 standalone draft。
+   - `Work` mode 下有选中 project 时 `New chat` 创建 project draft。
+5. 右键 chat，验证 Rename 和 Delete。
+6. 期望重命名后 sidebar/header 同步；删除当前 chat 后回到首页。
+7. 访问不存在的 route 或不存在的 chat id。
+8. 期望回到安全页面，不出现 blank page。
+9. 后台 chat 完成或等待输入时，sidebar/header 有可见提示；打开该 chat 后提示清除。
+
+## Workspace Tools
+
+覆盖：workspace tool sidebar/dialog/window host、tab state、Files、Git、Browser、Terminal、main/preload IPC。
+
+1. 打开一个 project chat，让右侧 workspace tool 具备 project root。
+2. 打开右侧 sidebar tool surface。
+3. 期望：
+   - sidebar mode 不显示独立 tool title header。
+   - 顶部 tool/tab 控件尺寸与主窗口 sidebar 控件一致。
+   - 所有 icon button 都有 tooltip 或 accessible name。
+   - 切换 sidebar 宽度、隐藏/显示 sidebar 后，Browser WebView 位置和大小跟随可视容器，不停留在旧位置。
+4. 将 tool surface 切到 dialog mode。
+5. 期望 dialog 使用 wide layout：左侧是垂直 tab sidebar，右侧是当前 tool 内容；关闭按钮只在 dialog mode 显示。
+6. 将 tool surface 切到 window mode。
+7. 期望 window 默认接近全屏，标题栏内容和 macOS traffic lights 垂直对齐，icon/tab 样式与主窗口一致。
+8. 在 dialog/window 间切换同一个 root。
+9. 期望 active tab、打开的文件 tab、git 选中文件和 browser URL 不无故丢失。
+
+## Workspace Files
+
+覆盖：file tree、Monaco editor、multi-tab、unsaved changes、file icon、wide mode resize。
+
+1. 在 sidebar mode 的 Files 中点击一个文件。
+2. 期望自动打开 dialog mode，并选中刚点击的文件。
+3. 在 wide Files 中打开多个文件。
+4. 期望右侧是 VS Code 风格 editor tab，可多开、切换和关闭；tab icon 与 file tree icon 一致且有文件类型颜色。
+5. 修改一个文件。
+6. 期望 tab 右侧显示未保存小点，不显示显式 `Save` 按钮。
+7. 按 `Ctrl+S` / `Cmd+S`。
+8. 期望文件保存，未保存小点消失，file tree/git status 刷新。
+9. 关闭未保存 tab 或离开 editor。
+10. 期望系统 dialog 询问是否保存、丢弃或取消；取消时仍停留在当前 tab。
+11. 拖动 file tree 和 editor 中间的 resize handle。
+12. 期望左右 pane 尺寸稳定，editor 不溢出，文本和 tab 不重叠。
+13. 切换 light/dark theme。
+14. 期望 Monaco 使用对应亮/暗主题；TypeScript language service 不启动 IDE 级检查，只保留展示/编辑需要的语法体验。
+
+## Workspace Git
+
+覆盖：git status/diff、sidebar compact diff、wide diff、commit composer、commit IPC。
+
+1. 在有改动的 project root 打开 Git。
+2. sidebar mode 期望：
+   - 外层没有额外 card padding/border。
+   - 文件列表紧凑，文件之间用分割线区隔。
+   - diff 默认折叠，展开后在原地渲染。
+   - 文件行显示 checkbox、文件名、绿色 `+N` 和红色 `-N`，不显示 `unstaged` 文案。
+3. wide mode 期望：
+   - 左侧是文件列表和 small size commit composer。
+   - 点击文件名不展开列表项，而是在右侧显示该文件 diff。
+   - diff tab 不支持多开；切换文件复用同一个右侧 diff viewer。
+4. 勾选/取消勾选部分文件。
+5. 期望 composer 的 selected file count 实时更新，commit 只包含选中文件。
+6. 输入 commit message 并提交。
+7. 期望成功后 git status 刷新；失败时错误显示在 composer 附近，不丢失 message。
 
 ## Settings
 
@@ -209,7 +275,10 @@
 4. 期望 running 和 completed 状态清晰，不遮挡正文。
 5. 触发 plan/todo。
 6. 期望 card 可读，状态清楚。
-7. hover 消息并验证 copy/edit/quote 这些高频 action 不报错。
+7. hover assistant message。
+8. 期望 action bar 只保留 Copy；不显示 Speak、Helpful、Not helpful、Export Markdown。
+9. 期望不显示 assistant-ui branch picker。
+10. 验证 Copy 不报错，且复制内容与当前消息一致。
 
 ## Claude Code Runtime
 
@@ -243,6 +312,10 @@
 - New chat、persisted unstarted chat、started chat 三种状态要分清。
 - Send/cancel/permission 不能把 chat 卡死。
 - Project chat 必须使用 project cwd。
+- Work Mode project 展开后必须稳定显示已有 chat，不能依赖切换页面触发重渲染。
+- Workspace tool 的 sidebar/dialog/window 三种 host 必须共享同一套 tab/content state。
+- Wide mode Files/Git 必须走同一套布局判断，不能分别写两套 tab UI。
+- Browser WebView 必须在 sidebar/window/dialog resize、隐藏和 route 变化后同步 bounds。
 - Desktop DB 只存 chat/project metadata，不存消息。
 - Electron preload 缺失导致的普通浏览器 blank page 不能误判为 app 失败。
 - Root provider 必须覆盖所有 route，尤其是 tooltip/toast/dialog。

@@ -8,6 +8,12 @@ multiple agents. Do not pipe a prewritten transcript into the CLI. Do not run a
 loop over runtimes. The point of this QA is to observe the real interactive
 behavior and decide the next step from the previous terminal output.
 
+This CLI QA covers engine/client/runtime behavior only. It does not cover the
+desktop renderer shell, Chat/Work mode sidebar, workspace tool
+sidebar/dialog/window hosts, Monaco file editing, Browser WebView bounds, or the
+desktop Git composer. Cover those through `desktop/docs/qa-checklist.md` and
+`desktop/docs/agent-runtime-qa-checklist.md`.
+
 ## Hard Rules
 
 - Test exactly one `AGENT_NAME` per run.
@@ -25,6 +31,9 @@ behavior and decide the next step from the previous terminal output.
 - Do not treat a startup smoke test as complete QA. A good run must include
   settings, normal turns, tool behavior, boundaries, permissions when surfaced,
   and plan mode when supported.
+- Do not report desktop-only paths as passed from this CLI run. If a bug is in
+  workspace tools, sidebar mode switching, or Electron BrowserView positioning,
+  switch to the desktop QA checklist.
 
 Supported `AGENT_NAME` values are the exact arguments accepted by
 `angel_cli.rs`:
@@ -242,6 +251,9 @@ by manual CLI QA unless the CLI is extended before the run:
   resources, blob resources, image input, and raw content blocks.
 - Double-submit elicitation rejection.
 - Malformed provider wire updates such as missing ACP mode/tool ids.
+- Desktop-only surfaces: Chat/Work mode sidebar, project tree rendering,
+  workspace tool tabs, Files/Git/Browser/Terminal panels, Monaco editor, system
+  save dialogs, Electron notifications, and Browser WebView bounds.
 
 Cover those with unit/integration tests or a purpose-built CLI extension. Do not
 claim this manual CLI run covered them.
