@@ -1,6 +1,7 @@
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
+import is from "@sindresorhus/is";
 import BetterSqliteDatabase from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
@@ -8,7 +9,7 @@ import { app } from "electron";
 
 import { chats, customAgents, projects } from "./schema";
 
-export type AppDatabase = BetterSQLite3Database<{
+type AppDatabase = BetterSQLite3Database<{
   chats: typeof chats;
   customAgents: typeof customAgents;
   projects: typeof projects;
@@ -48,7 +49,7 @@ function resolveMigrationsFolder() {
     fs.existsSync(path.join(candidate, "meta", "_journal.json")),
   );
 
-  if (!migrationsFolder) {
+  if (!is.nonEmptyString(migrationsFolder)) {
     throw new Error("Drizzle migrations folder not found.");
   }
 

@@ -15,7 +15,12 @@ export function ChatRestoreLoading() {
       "
       role="status"
     >
-      <div className={`${workspaceContentColumnClass} flex justify-center`}>
+      <div
+        className={`
+          ${workspaceContentColumnClass}
+          flex justify-center
+        `}
+      >
         <svg
           aria-hidden="true"
           className="chat-restore-mark h-24 w-64 max-w-full"

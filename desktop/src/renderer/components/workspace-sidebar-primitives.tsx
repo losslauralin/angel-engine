@@ -1,19 +1,15 @@
-import type { HTMLMotionProps, Transition } from "framer-motion";
+import type { HTMLMotionProps } from "framer-motion";
 import type { ReactElement, ReactNode } from "react";
-import { motion } from "framer-motion";
+import is from "@sindresorhus/is";
+import { m } from "framer-motion";
 
 import {
   SidebarGroupLabel,
   SidebarMenuAction,
   SidebarMenuButton,
-  SidebarMenuSubButton,
 } from "@/components/ui/sidebar";
+import { sidebarMotion } from "@/components/workspace-sidebar-motion";
 import { cn } from "@/platform/utils";
-
-export const sidebarMotion = {
-  duration: 0.16,
-  ease: "easeOut",
-} satisfies Transition;
 
 interface AnimatedSidebarMenuItemProps {
   children: ReactNode;
@@ -25,7 +21,7 @@ export function AnimatedSidebarMenuItem({
   className,
 }: AnimatedSidebarMenuItemProps): ReactElement {
   return (
-    <motion.li
+    <m.li
       animate="visible"
       className={cn("group/menu-item relative", className)}
       data-sidebar="menu-item"
@@ -35,7 +31,7 @@ export function AnimatedSidebarMenuItem({
       transition={sidebarMotion}
     >
       {children}
-    </motion.li>
+    </m.li>
   );
 }
 
@@ -49,7 +45,7 @@ export function SidebarSectionHeader({
   label,
 }: SidebarSectionHeaderProps): ReactElement {
   return (
-    <motion.div
+    <m.div
       className="flex items-center justify-between gap-2 pr-2"
       layout
       transition={sidebarMotion}
@@ -57,7 +53,7 @@ export function SidebarSectionHeader({
       <div className="flex min-w-0 items-center gap-1">
         <SidebarGroupLabel className="h-7">{label}</SidebarGroupLabel>
       </div>
-      {children ? (
+      {!is.falsy(children) ? (
         <div
           className="
             flex items-center gap-1
@@ -67,7 +63,7 @@ export function SidebarSectionHeader({
           {children}
         </div>
       ) : null}
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -84,40 +80,15 @@ export function WorkspaceSidebarMenuButton({
 }: WorkspaceSidebarMenuButtonProps): ReactElement {
   return (
     <SidebarMenuButton asChild isActive={isActive}>
-      <motion.button
+      <m.button
         className={cn("relative", className)}
         transition={sidebarMotion}
         type={type}
         {...props}
       >
         {children}
-      </motion.button>
+      </m.button>
     </SidebarMenuButton>
-  );
-}
-
-type WorkspaceSidebarMenuSubButtonProps = HTMLMotionProps<"button"> & {
-  isActive?: boolean;
-};
-
-export function WorkspaceSidebarMenuSubButton({
-  children,
-  className,
-  isActive,
-  type = "button",
-  ...props
-}: WorkspaceSidebarMenuSubButtonProps): ReactElement {
-  return (
-    <SidebarMenuSubButton asChild isActive={isActive}>
-      <motion.button
-        className={cn("relative", className)}
-        transition={sidebarMotion}
-        type={type}
-        {...props}
-      >
-        {children}
-      </motion.button>
-    </SidebarMenuSubButton>
   );
 }
 
@@ -134,7 +105,7 @@ export function WorkspaceSidebarMenuAction({
 }: WorkspaceSidebarMenuActionProps): ReactElement {
   return (
     <SidebarMenuAction asChild showOnHover={showOnHover}>
-      <motion.button
+      <m.button
         className={className}
         transition={sidebarMotion}
         type={type}
@@ -142,7 +113,7 @@ export function WorkspaceSidebarMenuAction({
         {...props}
       >
         {children}
-      </motion.button>
+      </m.button>
     </SidebarMenuAction>
   );
 }

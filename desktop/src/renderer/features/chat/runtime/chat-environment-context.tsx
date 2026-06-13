@@ -1,6 +1,6 @@
 import type { ChatAvailableCommand } from "@shared/chat";
 
-import { createContext, useContext } from "react";
+import { createContext, use } from "react";
 
 export interface ChatEnvironmentContextValue {
   availableCommands: ChatAvailableCommand[];
@@ -21,5 +21,5 @@ const ChatEnvironmentContext = createContext<ChatEnvironmentContextValue>({
 export const ChatEnvironmentProvider = ChatEnvironmentContext.Provider;
 
 export function useChatEnvironment(): ChatEnvironmentContextValue {
-  return useContext(ChatEnvironmentContext);
+  return use(ChatEnvironmentContext);
 }

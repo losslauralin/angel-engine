@@ -18,6 +18,7 @@ import {
   CompositeAttachmentAdapter,
   SimpleImageAttachmentAdapter,
 } from "@assistant-ui/react";
+import is from "@sindresorhus/is";
 import { useMemo } from "react";
 import { ChatEnvironmentProvider } from "@/features/chat/runtime/chat-environment-context";
 import { ChatRuntimeActionsProvider } from "@/features/chat/runtime/chat-runtime-actions-context";
@@ -118,7 +119,8 @@ export function AppRuntimeProvider({
       availableCommands:
         runtimeConfig?.availableCommands ?? EMPTY_AVAILABLE_COMMANDS,
       availableCommandsLoading: runtimeConfig === undefined,
-      isProjectChat: Boolean(projectId && projectPath),
+      isProjectChat:
+        is.nonEmptyString(projectId) && is.nonEmptyString(projectPath),
       projectId,
       projectPath,
     }),
@@ -159,7 +161,7 @@ class GenericFileAttachmentAdapter implements AttachmentAdapter {
     );
     const localPath = getLocalFilePath(attachment.file);
     const content = {
-      ...(localPath ? { path: localPath } : {}),
+      ...(is.nonEmptyString(localPath) ? { path: localPath } : {}),
       data: await readFileAsDataUrl(attachment.file),
       filename: attachment.name,
       mimeType: contentType,
@@ -181,8 +183,8 @@ class GenericFileAttachmentAdapter implements AttachmentAdapter {
 }
 
 function fileContentType(file: File, fallback?: string) {
-  if (file.type) return file.type;
-  if (fallback) return fallback;
+  if (is.nonEmptyString(file.type)) return file.type;
+  if (is.nonEmptyString(fallback)) return fallback;
   throw new Error(`File is missing content type: ${file.name}`);
 }
 
@@ -205,6 +207,8 @@ function createMockSpeechAdapter(): SpeechSynthesisAdapter {
   return {
     speak() {
       const listeners = new Set<() => void>();
+      let endTimeout = 0;
+      let startTimeout = 0;
       const utterance: SpeechSynthesisAdapter.Utterance = {
         cancel() {
           window.clearTimeout(startTimeout);
@@ -218,11 +222,11 @@ function createMockSpeechAdapter(): SpeechSynthesisAdapter {
           return () => listeners.delete(callback);
         },
       };
-      const startTimeout = window.setTimeout(() => {
+      startTimeout = window.setTimeout(() => {
         utterance.status = { type: "running" };
         listeners.forEach((listener) => listener());
       }, 120);
-      const endTimeout = window.setTimeout(() => {
+      endTimeout = window.setTimeout(() => {
         utterance.status = { type: "ended", reason: "finished" };
         listeners.forEach((listener) => listener());
       }, 2200);

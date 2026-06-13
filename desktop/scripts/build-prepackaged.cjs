@@ -1,6 +1,7 @@
+const { execFileSync } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
-const { execFileSync } = require("node:child_process");
+const process = require("node:process");
 
 const desktopRoot = path.resolve(__dirname, "..");
 const outDir = path.join(desktopRoot, "out");

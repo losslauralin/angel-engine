@@ -5,6 +5,7 @@ import {
   supportedLanguages,
 } from "@shared/i18n/resources";
 
+import is from "@sindresorhus/is";
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 import { useSettingsStore } from "@/features/settings/settings-store";
@@ -69,7 +70,7 @@ syncMainLanguage(normalizeSupportedLanguage(i18n.resolvedLanguage));
 
 function detectInitialLanguage(): SupportedLanguage {
   const persistedLanguage = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
-  if (persistedLanguage) {
+  if (is.nonEmptyString(persistedLanguage)) {
     return normalizeSupportedLanguage(persistedLanguage);
   }
 
@@ -80,7 +81,7 @@ function detectInitialCjkFontLanguage(
   supportedLanguage: SupportedLanguage,
 ): string {
   const persistedLanguage = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
-  if (persistedLanguage) {
+  if (is.nonEmptyString(persistedLanguage)) {
     return persistedLanguage;
   }
 
@@ -139,6 +140,5 @@ function cjkFontLocaleFromLanguage(language: string): CjkFontLocale {
   return "sc";
 }
 
-export { normalizeSupportedLanguage };
 export type { SupportedLanguage };
 export default i18n;

@@ -1,3 +1,4 @@
+import is from "@sindresorhus/is";
 import { type as arkType } from "arktype";
 
 export type AgentRuntime =
@@ -167,11 +168,14 @@ export function resolveEnabledAgentRuntime(
     available.has(enabledRuntime),
   );
 
-  if (runtime && enabledRuntimes.includes(runtime)) {
+  if (is.nonEmptyString(runtime) && enabledRuntimes.includes(runtime)) {
     return runtime;
   }
 
-  if (settings.lastRuntime && enabledRuntimes.includes(settings.lastRuntime)) {
+  if (
+    is.nonEmptyString(settings.lastRuntime) &&
+    enabledRuntimes.includes(settings.lastRuntime)
+  ) {
     return settings.lastRuntime;
   }
 

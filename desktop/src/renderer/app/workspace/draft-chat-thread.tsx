@@ -7,8 +7,8 @@ import type {
 import type { Project } from "@shared/projects";
 import type { ReactNode } from "react";
 import type {
-  ChatRunOrigin,
   ChatMessagesUpdateHandler,
+  ChatRunOrigin,
   ChatUpdateHandler,
 } from "./workspace-thread-types";
 import type { ChatOptionsContextValue } from "@/features/chat/runtime/chat-options-context";

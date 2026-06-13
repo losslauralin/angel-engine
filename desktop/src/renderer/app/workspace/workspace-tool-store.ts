@@ -6,6 +6,7 @@ import type {
 } from "@shared/workspace-tool-surface";
 import type { WorkspaceFileReadResult } from "@shared/workspace-tools";
 
+import is from "@sindresorhus/is";
 import { create } from "zustand";
 
 export type WorkspaceWideFileState =
@@ -72,7 +73,7 @@ interface WorkspaceToolState {
     size: number;
   }) => void;
   setWideFilesEditorDirty: (dirty: boolean) => void;
-  setWorkspaceToolContext: (context: WorkspaceToolSurfaceContext) => void;
+  syncWorkspaceToolContext: (context: WorkspaceToolSurfaceContext) => void;
   syncWorkspaceToolState: (state: WorkspaceToolSurfaceState) => void;
   updateWorkspaceToolSnapshot: (
     chatId: string,
@@ -267,7 +268,7 @@ export const useWorkspaceToolStore = create<WorkspaceToolState>()(
         };
       });
     },
-    setWorkspaceToolContext: (context) => {
+    syncWorkspaceToolContext: (context) => {
       set({ context });
       window.desktopWindow.setWorkspaceToolSurfaceContext(context);
     },
@@ -284,7 +285,7 @@ export const useWorkspaceToolStore = create<WorkspaceToolState>()(
         host: state.host,
         hydrated: true,
         snapshots:
-          chatId && state.snapshot
+          is.nonEmptyString(chatId) && !is.falsy(state.snapshot)
             ? {
                 ...current.snapshots,
                 [chatId]: state.snapshot,
@@ -334,7 +335,7 @@ export function ensureWorkspaceToolSurfaceEvents() {
   });
 }
 
-export function createDefaultWorkspaceToolSnapshot(): WorkspaceToolSurfaceSnapshot {
+function createDefaultWorkspaceToolSnapshot(): WorkspaceToolSurfaceSnapshot {
   return {
     activeTabId: workspaceToolFilesTabId,
     nextBrowserOrdinal: 1,
@@ -347,7 +348,7 @@ export function currentWorkspaceToolSnapshot(
   chatId: string | null | undefined,
   snapshots: Record<string, WorkspaceToolSurfaceSnapshot>,
 ) {
-  if (!chatId) {
+  if (!is.nonEmptyString(chatId)) {
     return createDefaultWorkspaceToolSnapshot();
   }
 

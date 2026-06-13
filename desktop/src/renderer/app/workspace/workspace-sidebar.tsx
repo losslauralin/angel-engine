@@ -104,7 +104,7 @@ export function WorkspaceSidebar({
       variant="inset"
     >
       <SidebarHeader className="p-2" data-electron-drag>
-        {isMacOS ? <div aria-hidden className="h-[2rem] shrink-0" /> : null}
+        {isMacOS ? <div aria-hidden className="h-8 shrink-0" /> : null}
 
         <WorkspaceModeControl
           onValueChange={setWorkspaceMode}
@@ -127,8 +127,8 @@ export function WorkspaceSidebar({
         <div
           aria-hidden="true"
           className="
-            mx-2 mb-1 h-px shrink-0 bg-black/[0.06]
-            dark:bg-white/[0.08]
+            mx-2 mb-1 h-px shrink-0 bg-black/6
+            dark:bg-white/8
           "
         />
 
@@ -197,8 +197,7 @@ function WorkspaceModeControl({
         className="
           grid grid-cols-2 gap-0.5 rounded-md bg-black/5.5 p-0.5
           shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]
-          dark:bg-white/5.5
-          dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.07)]
+          dark:bg-white/5.5 dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.07)]
         "
         role="group"
       >
@@ -213,11 +212,10 @@ function WorkspaceModeControl({
               aria-pressed={isActive}
               className={cn(
                 `
-                  flex h-[1.75rem] min-w-0 items-center justify-center gap-1.5
+                  flex h-7 min-w-0 items-center justify-center gap-1.5
                   rounded-[5px] px-2
                   [font-size:var(--workspace-sidebar-label-text-size)]
-                  font-medium
-                  text-sidebar-foreground/58 outline-hidden
+                  font-medium text-sidebar-foreground/58 outline-hidden
                   transition-[background-color,color,box-shadow]
                   hover:bg-white/25 hover:text-sidebar-foreground/78
                   focus-visible:bg-white/40
@@ -239,7 +237,7 @@ function WorkspaceModeControl({
               title={label}
               type="button"
             >
-              <Icon className="size-[1rem] shrink-0" />
+              <Icon className="size-4 shrink-0" />
               <span className="min-w-0 truncate">{label}</span>
             </button>
           );

@@ -61,17 +61,17 @@ interface WorkspaceTerminalInstance {
 }
 
 export function WorkspaceTerminalView({
-  autoFocus,
+  focusOnMount,
   root,
   sessionId,
 }: {
-  autoFocus: boolean;
+  focusOnMount: boolean;
   root: string;
   sessionId: string;
 }) {
   const instanceRef = useRef<WorkspaceTerminalInstance | null>(null);
-  const autoFocusRef = useRef(autoFocus);
-  autoFocusRef.current = autoFocus;
+  const focusOnMountRef = useRef(focusOnMount);
+  focusOnMountRef.current = focusOnMount;
   const setContainer = useCallback(
     (container: HTMLDivElement | null) => {
       disposeWorkspaceTerminalInstance(instanceRef.current);
@@ -142,7 +142,7 @@ export function WorkspaceTerminalView({
       resizeObserver.observe(container);
       const animationFrame = window.requestAnimationFrame(() => {
         fitTerminal(fitAddon, terminal, controller);
-        if (autoFocusRef.current) {
+        if (focusOnMountRef.current) {
           terminal.focus();
         }
       });
@@ -202,7 +202,5 @@ function fitTerminal(
   try {
     fitAddon.fit();
     controller.resize({ cols: terminal.cols, rows: terminal.rows });
-  } catch {
-    return;
-  }
+  } catch {}
 }

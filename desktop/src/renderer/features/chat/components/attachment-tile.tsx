@@ -3,6 +3,7 @@ import {
   RiImageLine as ImageIcon,
   RiCloseLine as X,
 } from "@remixicon/react";
+import is from "@sindresorhus/is";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -36,6 +37,8 @@ export function ChatAttachmentTile({
   typeLabel,
 }: ChatAttachmentTileProps) {
   const { t } = useTranslation();
+  const hasPreviewUrl = is.nonEmptyString(previewUrl);
+  const hasPreview = hasPreviewUrl || previewText !== undefined;
   const body = (
     <AttachmentTileBody
       contentType={contentType}
@@ -47,7 +50,7 @@ export function ChatAttachmentTile({
 
   return (
     <div className={cn("relative inline-flex max-w-full", className)}>
-      {previewUrl || previewText !== undefined ? (
+      {hasPreview ? (
         <Dialog>
           <DialogTrigger asChild>
             <button
@@ -71,7 +74,7 @@ export function ChatAttachmentTile({
             "
           >
             <DialogTitle className="truncate pr-10 text-sm">{name}</DialogTitle>
-            {previewUrl ? (
+            {hasPreviewUrl ? (
               <div
                 className="
                   flex min-h-0 items-center justify-center overflow-auto
@@ -165,6 +168,7 @@ function AttachmentThumb({
   previewUrl?: string;
 }) {
   const [imageFailed, setImageFailed] = useState(false);
+  const hasPreviewUrl = is.nonEmptyString(previewUrl);
 
   return (
     <span
@@ -174,14 +178,14 @@ function AttachmentThumb({
         dark:border-white/8
       "
     >
-      {previewUrl && !imageFailed ? (
+      {hasPreviewUrl && !imageFailed ? (
         <img
           alt=""
           className="size-full object-cover"
           onError={() => setImageFailed(true)}
           src={previewUrl}
         />
-      ) : previewUrl ? (
+      ) : hasPreviewUrl ? (
         <ImageIcon aria-label={name} className="size-4 text-muted-foreground" />
       ) : (
         <FileText aria-label={name} className="size-4 text-muted-foreground" />

@@ -1,6 +1,6 @@
 import type { Chat } from "@shared/chat";
-import type { FormEventHandler, ReactElement } from "react";
-import { useState } from "react";
+import type { FormEventHandler, ReactElement, RefObject } from "react";
+import { useRef, useState } from "react";
 
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
@@ -28,10 +28,17 @@ export function RenameChatDialog({
   onRename,
 }: RenameChatDialogProps): ReactElement {
   const { t } = useTranslation();
+  const inputRef = useRef<HTMLInputElement>(null);
 
   return (
     <Dialog open={Boolean(chat)} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="gap-5 rounded-2xl">
+      <DialogContent
+        className="gap-5 rounded-2xl"
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          inputRef.current?.focus({ preventScroll: true });
+        }}
+      >
         <DialogHeader>
           <DialogTitle>{t("dialog.renameChat")}</DialogTitle>
           <DialogDescription className="sr-only">
@@ -41,6 +48,7 @@ export function RenameChatDialog({
         {chat ? (
           <RenameChatForm
             chat={chat}
+            inputRef={inputRef}
             isSaving={isSaving}
             key={chat.id}
             onClose={onClose}
@@ -54,11 +62,13 @@ export function RenameChatDialog({
 
 function RenameChatForm({
   chat,
+  inputRef,
   isSaving,
   onClose,
   onRename,
 }: {
   chat: Chat;
+  inputRef: RefObject<HTMLInputElement | null>;
   isSaving: boolean;
   onClose: () => void;
   onRename: (chat: Chat, title: string) => Promise<void> | void;
@@ -84,9 +94,9 @@ function RenameChatForm({
       <div>
         <Input
           aria-label={t("dialog.chatName")}
-          autoFocus
           disabled={isSaving}
           onChange={(event) => setTitle(event.target.value)}
+          ref={inputRef}
           value={title}
         />
       </div>

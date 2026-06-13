@@ -1,7 +1,7 @@
 import type { PointerEvent as ReactPointerEvent } from "react";
 import type { ApiClient } from "@/platform/api-client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 import { WorkspaceToolSurface } from "@/app/workspace/workspace-tool-host";
 import { clampWorkspaceRightSidebarWidth } from "@/app/workspace/workspace-ui-store";
@@ -29,21 +29,16 @@ export function WorkspaceRightSidebar({
   const resizeStateRef = useRef<{ startWidth: number; startX: number } | null>(
     null,
   );
-  const [draftWidth, setDraftWidth] = useState(width);
+  const [resizeDraftWidth, setResizeDraftWidth] = useState<number | null>(null);
   const [resizing, setResizing] = useState(false);
-  const widthStyle = { width: open ? draftWidth : 0 };
-  const contentStyle = { width: draftWidth };
-
-  useEffect(() => {
-    if (!resizeStateRef.current) {
-      setDraftWidth(width);
-    }
-  }, [width]);
+  const currentWidth = resizeDraftWidth ?? width;
+  const widthStyle = { width: open ? currentWidth : 0 };
+  const contentStyle = { width: currentWidth };
 
   const handleResizePointerDown = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
-      const nextDraftWidth = clampWorkspaceRightSidebarWidth(draftWidth);
-      setDraftWidth(nextDraftWidth);
+      const nextDraftWidth = clampWorkspaceRightSidebarWidth(currentWidth);
+      setResizeDraftWidth(nextDraftWidth);
       resizeStateRef.current = {
         startWidth: nextDraftWidth,
         startX: event.clientX,
@@ -52,14 +47,14 @@ export function WorkspaceRightSidebar({
       event.currentTarget.setPointerCapture(event.pointerId);
       event.preventDefault();
     },
-    [draftWidth],
+    [currentWidth],
   );
   const handleResizePointerMove = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
       const resizeState = resizeStateRef.current;
       if (!resizeState) return;
 
-      setDraftWidth(
+      setResizeDraftWidth(
         clampWorkspaceRightSidebarWidth(
           resizeState.startWidth + resizeState.startX - event.clientX,
         ),
@@ -74,10 +69,10 @@ export function WorkspaceRightSidebar({
         const nextWidth = clampWorkspaceRightSidebarWidth(
           resizeState.startWidth + resizeState.startX - event.clientX,
         );
-        setDraftWidth(nextWidth);
         onWidthChange(nextWidth);
       }
       resizeStateRef.current = null;
+      setResizeDraftWidth(null);
       setResizing(false);
       if (event.currentTarget.hasPointerCapture(event.pointerId)) {
         event.currentTarget.releasePointerCapture(event.pointerId);
@@ -91,7 +86,11 @@ export function WorkspaceRightSidebar({
       aria-hidden={!open}
       inert={!open ? true : undefined}
       className={cn(
-        "relative min-h-0 shrink-0 overflow-hidden border-l border-foreground/10 bg-background/80 dark:border-white/10",
+        `
+          relative min-h-0 shrink-0 overflow-hidden border-l
+          border-foreground/10 bg-background/80
+          dark:border-white/10
+        `,
         resizing
           ? "transition-opacity"
           : "transition-[width,opacity] duration-200 ease-linear",
@@ -101,7 +100,13 @@ export function WorkspaceRightSidebar({
     >
       <div
         aria-hidden="true"
-        className="absolute inset-y-0 left-0 z-10 w-2 -translate-x-1/2 cursor-col-resize touch-none before:absolute before:inset-y-0 before:left-1/2 before:w-px before:-translate-x-1/2 before:bg-transparent hover:before:bg-primary/35"
+        className="
+          absolute inset-y-0 left-0 z-10 w-2 -translate-x-1/2 cursor-col-resize
+          touch-none
+          before:absolute before:inset-y-0 before:left-1/2 before:w-px
+          before:-translate-x-1/2 before:bg-transparent
+          hover:before:bg-primary/35
+        "
         onPointerCancel={handleResizePointerEnd}
         onPointerDown={handleResizePointerDown}
         onPointerMove={handleResizePointerMove}

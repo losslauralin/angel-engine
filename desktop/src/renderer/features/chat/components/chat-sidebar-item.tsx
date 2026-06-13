@@ -4,6 +4,7 @@ import {
   RiRobot2Line as Bot,
 } from "@remixicon/react";
 
+import is from "@sindresorhus/is";
 import { useTranslation } from "react-i18next";
 import {
   WorkspaceSidebarMenuAction,
@@ -62,23 +63,23 @@ export function ChatSidebarItem({
         title={tooltip}
       >
         <span
-          className="
-            flex size-[1rem] shrink-0 items-center justify-center
-          "
+          className="flex size-4 shrink-0 items-center justify-center"
           title={runtimeLabel}
         >
-          {runtimeIconSvg ? (
+          {is.nonEmptyString(runtimeIconSvg) ? (
             <span
               aria-hidden="true"
               className="
-                flex size-[0.625rem] items-center justify-center
+                flex size-2.5 items-center justify-center
                 text-sidebar-foreground/55
-                [&_svg]:block [&_svg]:size-[0.625rem] [&_svg]:shrink-0
+                [&_svg]:block [&_svg]:size-2.5 [&_svg]:shrink-0
               "
+              // oxlint-disable-next-line react/no-danger -- Static bundled runtime icons need inline SVG to inherit local icon styling.
+              // eslint-disable-next-line react/dom-no-dangerously-set-innerhtml -- Static bundled runtime icons need inline SVG to inherit local icon styling.
               dangerouslySetInnerHTML={{ __html: runtimeIconSvg }}
             />
           ) : (
-            <Bot className="size-[0.625rem] text-sidebar-foreground/55" />
+            <Bot className="size-2.5 text-sidebar-foreground/55" />
           )}
         </span>
         <span

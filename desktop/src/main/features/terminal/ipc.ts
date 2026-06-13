@@ -1,3 +1,6 @@
+import type { WebContents } from "electron";
+import type { IPty } from "node-pty";
+
 import type {
   TerminalCreateRequest,
   TerminalDisposeInput,
@@ -6,12 +9,10 @@ import type {
   TerminalResizeInput,
   TerminalWriteInput,
 } from "../../../shared/terminal";
-import type { IPty } from "node-pty";
-
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { ipcMain, type WebContents } from "electron";
+import { ipcMain } from "electron";
 import * as pty from "node-pty";
 
 import {
@@ -157,7 +158,7 @@ function pushTerminalScrollback(session: TerminalSession, data: string) {
   }
 }
 
-export function killTerminalSession(sessionId: string) {
+function killTerminalSession(sessionId: string) {
   const session = terminalSessions.get(sessionId);
   if (!session) return false;
   terminalSessions.delete(sessionId);
@@ -167,14 +168,21 @@ export function killTerminalSession(sessionId: string) {
 
 function defaultShell() {
   switch (process.platform) {
+    case "aix":
+    case "android":
+    case "freebsd":
+    case "haiku":
+    case "openbsd":
+    case "sunos":
+    case "cygwin":
+    case "netbsd":
+      throw new Error(`Unsupported terminal platform: ${process.platform}`);
     case "darwin":
       return { args: ["-l"], file: "/bin/zsh" };
     case "linux":
       return { args: [], file: "/bin/bash" };
     case "win32":
       return { args: ["-NoLogo"], file: "powershell.exe" };
-    default:
-      throw new Error(`Unsupported terminal platform: ${process.platform}`);
   }
 }
 
@@ -247,7 +255,7 @@ function isObject(value: unknown): value is Record<string, unknown> {
 
 function parseString(value: unknown, label: string) {
   if (typeof value !== "string") {
-    throw new Error(`${label} must be a string.`);
+    throw new TypeError(`${label} must be a string.`);
   }
   return value;
 }
@@ -262,7 +270,7 @@ function parseNonEmptyString(value: unknown, label: string) {
 
 function parseDimension(value: unknown, label: string) {
   if (typeof value !== "number" || !Number.isFinite(value)) {
-    throw new Error(`${label} must be a finite number.`);
+    throw new TypeError(`${label} must be a finite number.`);
   }
   return Math.max(1, Math.floor(value));
 }

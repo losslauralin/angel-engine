@@ -52,6 +52,7 @@ import {
   abortError,
   throwIfAborted,
 } from "@angel-engine/js-client/utils/errors";
+import is from "@sindresorhus/is";
 import { app } from "electron";
 import { isCustomAgentRuntime } from "../../../shared/agents";
 import { normalizeChatAttachmentsInput } from "../../../shared/chat";
@@ -72,7 +73,7 @@ type ClientInput = NonNullable<SendTextRequest["input"]>[number];
 type ChatStreamObserver = (
   event: ProjectedTurnEvent | { chat: Chat; type: "chat" },
 ) => void;
-export interface ChatStreamControls {
+interface ChatStreamControls {
   setResolveElicitation?: (
     handler: (
       elicitationId: string,
@@ -103,7 +104,7 @@ type ReadyChatPrewarm = ChatPrewarm & {
   snapshot: ConversationSnapshot;
 };
 
-export async function sendChat(input: ChatSendInput): Promise<ChatSendResult> {
+async function sendChat(input: ChatSendInput): Promise<ChatSendResult> {
   return streamChat(input);
 }
 
@@ -122,12 +123,12 @@ export function createChatRuntime(): ChatRuntime {
   };
 }
 
-export async function loadChatSession(chatId: string): Promise<ChatLoadResult> {
+async function loadChatSession(chatId: string): Promise<ChatLoadResult> {
   const chat = requireChat(chatId);
   const session = chatSessions.get(chat.id);
   const cwd = cwdForChat(chat);
 
-  if (!chat.remoteThreadId && !session?.hasConversation()) {
+  if (!is.nonEmptyString(chat.remoteThreadId) && !session?.hasConversation()) {
     return { chat, messages: [] };
   }
 
@@ -146,7 +147,7 @@ export async function loadChatSession(chatId: string): Promise<ChatLoadResult> {
   };
 }
 
-export async function inspectChatRuntimeConfig(
+async function inspectChatRuntimeConfig(
   input: ChatRuntimeConfigInput,
 ): Promise<ChatRuntimeConfig> {
   const session = await createChatSession(input.runtime);
@@ -159,7 +160,7 @@ export async function inspectChatRuntimeConfig(
   }
 }
 
-export function createChatFromInput(input: ChatCreateInput): Chat {
+function createChatFromInput(input: ChatCreateInput): Chat {
   if (input.creationLocation === "worktree") {
     throw new Error("Worktree chats must be created by sending a message.");
   }
@@ -170,7 +171,7 @@ export function createChatFromInput(input: ChatCreateInput): Chat {
   });
 }
 
-export async function setChatMode(
+async function setChatMode(
   input: ChatSetModeInput,
 ): Promise<ChatSetModeResult> {
   const chat = requireChat(input.chatId);
@@ -188,7 +189,7 @@ export async function setChatMode(
   };
 }
 
-export async function setChatPermissionMode(
+async function setChatPermissionMode(
   input: ChatSetPermissionModeInput,
 ): Promise<ChatSetPermissionModeResult> {
   const chat = requireChat(input.chatId);
@@ -206,10 +207,13 @@ export async function setChatPermissionMode(
   };
 }
 
-export function setChatRuntime(input: ChatSetRuntimeInput): Chat {
+function setChatRuntime(input: ChatSetRuntimeInput): Chat {
   const chat = requireChat(input.chatId);
   const session = chatSessions.get(chat.id);
-  if (chat.remoteThreadId || session?.hasConversation()) {
+  if (
+    is.nonEmptyString(chat.remoteThreadId) ||
+    session?.hasConversation() === true
+  ) {
     throw new Error(
       "Chat runtime cannot be changed after the chat has started.",
     );
@@ -220,7 +224,7 @@ export function setChatRuntime(input: ChatSetRuntimeInput): Chat {
   return setChatRuntimeRecord(chat.id, input.runtime);
 }
 
-export async function prewarmChat(
+async function prewarmChat(
   input: ChatPrewarmInput,
 ): Promise<ChatPrewarmResult> {
   if (input.creationLocation === "worktree") {
@@ -241,7 +245,7 @@ export async function prewarmChat(
   return chatPrewarmResult(prewarm);
 }
 
-export async function streamChat(
+async function streamChat(
   input: ChatSendInput,
   onEvent?: ChatStreamObserver,
   abortSignal?: AbortSignal,
@@ -275,11 +279,11 @@ export async function streamChat(
     text: input.text,
   });
 
-  if (input.text) {
+  if (is.nonEmptyString(input.text)) {
     renameChatFromPrompt(chat.id, input.text);
   }
   const projected = projectTurnRunResult(result);
-  const finalChat = projected.remoteThreadId
+  const finalChat = is.nonEmptyString(projected.remoteThreadId)
     ? setChatRemoteThreadId(chat.id, projected.remoteThreadId)
     : touchChat(chat.id);
   const content = projected.content;
@@ -296,8 +300,8 @@ export async function streamChat(
   };
 }
 
-export function closeChatSession(chatId?: string) {
-  if (chatId) {
+function closeChatSession(chatId?: string) {
+  if (is.nonEmptyString(chatId)) {
     chatSessions.get(chatId)?.close();
     chatSessions.delete(chatId);
     return;
@@ -363,7 +367,9 @@ function chatAttachmentsToClientInput(
       const localPath = attachment.path;
       return {
         mimeType: attachment.mimeType ?? null,
-        name: attachment.name || path.basename(localPath),
+        name: is.nonEmptyString(attachment.name)
+          ? attachment.name
+          : path.basename(localPath),
         path: localPath,
         type: ClientInputType.FileMention,
       };
@@ -399,7 +405,9 @@ function chatAttachmentsToClientInput(
 }
 
 function attachmentUri(attachment: ChatAttachmentInput) {
-  const name = attachment.name || "attachment";
+  const name = is.nonEmptyString(attachment.name)
+    ? attachment.name
+    : "attachment";
   return `attachment:///${encodeURIComponent(name)}`;
 }
 
@@ -408,12 +416,12 @@ async function prepareChatForSend(input: ChatSendInput): Promise<{
   isNewChat: boolean;
   session: DesktopChatSession;
 }> {
-  if (input.chatId) {
+  if (is.nonEmptyString(input.chatId)) {
     const chat = requireChat(input.chatId);
     return { chat, isNewChat: false, session: await getChatSession(chat) };
   }
 
-  const prewarm = input.prewarmId
+  const prewarm = is.nonEmptyString(input.prewarmId)
     ? takeChatPrewarm(input.prewarmId, input)
     : undefined;
   if (prewarm) {
@@ -438,7 +446,7 @@ async function prepareChatForSend(input: ChatSendInput): Promise<{
 function persistRemoteThreadId(chat: Chat, snapshot: ConversationSnapshot) {
   if (
     snapshot.remoteKind !== "known" ||
-    !snapshot.remoteId ||
+    !is.nonEmptyString(snapshot.remoteId) ||
     snapshot.remoteId === chat.remoteThreadId
   ) {
     return chat;
@@ -542,7 +550,7 @@ function cwdForChat(chat: Chat, projectId?: string | null): string {
 
 async function cwdForNewChat(input: ChatSendInput) {
   if (input.creationLocation === "worktree") {
-    if (!input.projectId) {
+    if (!is.nonEmptyString(input.projectId)) {
       throw new Error("Project is required to create a git worktree.");
     }
     return (await createProjectWorktree({ projectId: input.projectId })).cwd;
@@ -556,7 +564,7 @@ function cwdForProjectOrStandalone(projectId: string | null | undefined) {
 }
 
 function cwdForProjectId(projectId: string | null | undefined) {
-  if (!projectId) return undefined;
+  if (!is.nonEmptyString(projectId)) return undefined;
   const project = getProject(projectId);
   if (!project) {
     throw new Error(`Project path not found for project id: ${projectId}`);
@@ -892,8 +900,3 @@ function clientElicitationResponse(
       };
   }
 }
-
-export type {
-  ChatRuntimeConfig as EngineRuntimeConfig,
-  TurnRunResult as RunTurnResult,
-};

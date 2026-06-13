@@ -43,6 +43,7 @@ import {
   parseDataUrl,
 } from "@shared/chat";
 import { isTextLikeMimeType } from "@shared/mime";
+import is from "@sindresorhus/is";
 import { cjk } from "@streamdown/cjk";
 import { code as streamdownCode } from "@streamdown/code";
 import { math } from "@streamdown/math";
@@ -70,8 +71,8 @@ import {
   workspaceContentColumnClass,
 } from "@/features/chat/components/thread-styles";
 import { useChatOptions } from "@/features/chat/runtime/chat-options-context";
-import { useChatRuntimeActions } from "@/features/chat/runtime/chat-runtime-actions-context";
 import { findPlanModeToggleTarget } from "@/features/chat/runtime/mode-options";
+import { useChatRuntimeActions } from "@/features/chat/runtime/use-chat-runtime-actions";
 
 import { cn } from "@/platform/utils";
 
@@ -197,9 +198,8 @@ export function UserEditComposer() {
     >
       <ComposerPrimitive.Root
         className="
-          w-full rounded-lg border border-foreground/8
-          bg-background/90 p-2.5 shadow-[0_8px_22px_-22px_rgba(0,0,0,0.55)]
-          backdrop-blur-xl
+          w-full rounded-lg border border-foreground/8 bg-background/90 p-2.5
+          shadow-[0_8px_22px_-22px_rgba(0,0,0,0.55)] backdrop-blur-xl
           dark:border-white/8
         "
       >
@@ -237,11 +237,7 @@ export function AssistantMessage() {
       className={cn(messageColumnClassName, "group flex justify-start")}
       data-workspace-mode={workspaceMode}
     >
-      <div
-        className="
-          flex w-full flex-col items-start gap-1.5 text-sm/6
-        "
-      >
+      <div className="flex w-full flex-col items-start gap-1.5 text-sm/6">
         <div className="w-full">
           <AssistantMessageErrorBanner />
           <AssistantMessageParts />
@@ -344,20 +340,6 @@ function formatAssistantMessageError(error: unknown, title: string) {
     : normalizedText;
 }
 
-function UserMessageParts() {
-  return <MessagePrimitive.Parts components={userMessagePartComponents} />;
-}
-
-function UserMessageAttachmentParts() {
-  return (
-    <MessagePrimitive.Parts components={userMessageAttachmentPartComponents} />
-  );
-}
-
-function AssistantMessageParts() {
-  return <MessagePrimitive.Parts components={assistantMessagePartComponents} />;
-}
-
 const userMessagePartComponents = {
   Text: PlainTextMessagePart,
   Source: NullMessagePart,
@@ -394,6 +376,20 @@ const assistantMessagePartComponents = {
   },
 };
 
+function UserMessageParts() {
+  return <MessagePrimitive.Parts components={userMessagePartComponents} />;
+}
+
+function UserMessageAttachmentParts() {
+  return (
+    <MessagePrimitive.Parts components={userMessageAttachmentPartComponents} />
+  );
+}
+
+function AssistantMessageParts() {
+  return <MessagePrimitive.Parts components={assistantMessagePartComponents} />;
+}
+
 function PlainTextMessagePart(
   part: Extract<EnrichedPartState, { type: "text" }>,
 ) {
@@ -411,9 +407,9 @@ function PlainTextMessagePart(
     return (
       <div
         className="
-          whitespace-pre-wrap [font-size:var(--workspace-user-bubble-text-size)]
-          [line-height:var(--workspace-user-bubble-line-height)]
-          [overflow-wrap:anywhere] [word-break:normal]
+          [font-size:var(--workspace-user-bubble-text-size)]
+          leading-(--workspace-user-bubble-line-height) wrap-anywhere
+          [word-break:normal] whitespace-pre-wrap
         "
       >
         {part.text}
@@ -437,7 +433,8 @@ function AssistantTextMessagePart(
             messagePart.name === "todo" ||
             messagePart.name === "elicitation")) ||
         (messagePart.type === "reasoning" &&
-          (messagePart.text || messagePart.status.type === "running")),
+          (is.nonEmptyString(messagePart.text) ||
+            messagePart.status.type === "running")),
     ),
   );
 
@@ -563,12 +560,19 @@ function GenericToolActionMessagePart({
 }) {
   const { t } = useTranslation();
   const phase = action?.phase ?? part.status.type;
-  const title = action?.title || action?.inputSummary || part.toolName;
+  const title = is.nonEmptyString(action?.title)
+    ? action.title
+    : is.nonEmptyString(action?.inputSummary)
+      ? action.inputSummary
+      : part.toolName;
   const outputText = getToolOutputText(action, part.result);
   const errorText = action?.error?.message;
   const isRunning = isRunningToolPhase(phase);
-  const isFailed = Boolean(errorText) || phase === "failed";
-  const hasDetails = Boolean(part.argsText || outputText || errorText);
+  const isFailed = is.nonEmptyString(errorText) || phase === "failed";
+  const hasDetails =
+    is.nonEmptyString(part.argsText) ||
+    is.nonEmptyString(outputText) ||
+    is.nonEmptyString(errorText);
   const hasTextAfterTool = useHasTextAfterToolCall(part.toolCallId);
   const [manualOpen, setManualOpen] = useState<boolean | undefined>();
   const open = hasDetails && (manualOpen ?? !hasTextAfterTool);
@@ -604,25 +608,25 @@ function GenericToolActionMessagePart({
               dark:border-white/10
             "
           >
-            {part.argsText && (
+            {is.nonEmptyString(part.argsText) ? (
               <ToolPreBlock
                 label={t("messages.tool.input")}
                 value={part.argsText}
               />
-            )}
-            {errorText && (
+            ) : null}
+            {is.nonEmptyString(errorText) ? (
               <ToolPreBlock
                 label={t("common.error")}
                 tone="error"
                 value={errorText}
               />
-            )}
-            {!errorText && outputText && (
+            ) : null}
+            {!is.nonEmptyString(errorText) && is.nonEmptyString(outputText) ? (
               <ToolPreBlock
                 label={t("messages.tool.output")}
                 value={outputText}
               />
-            )}
+            ) : null}
           </div>
         </CollapsibleContent>
       )}
@@ -637,8 +641,14 @@ function isBareHostCapabilityToolAction(
   errorText?: string,
 ) {
   if (action?.kind !== "hostCapability") return false;
-  if (outputText || errorText) return false;
-  if (action.output?.some((output) => output.text)) return false;
+  if (is.nonEmptyString(outputText) || is.nonEmptyString(errorText)) {
+    return false;
+  }
+  if (
+    action.output?.some((output) => is.nonEmptyString(output.text)) === true
+  ) {
+    return false;
+  }
   return title === "hostCapability" || title === "User input requested";
 }
 
@@ -728,8 +738,10 @@ function isPermissionElicitation(
 }
 
 function toolActionFromMessagePart(part: unknown): ChatToolAction | undefined {
-  if (!part || typeof part !== "object") return undefined;
-  const candidate = part as { artifact?: unknown; type?: string };
+  if (!is.plainObject(part)) {
+    return undefined;
+  }
+  const candidate = part as { artifact?: unknown; type?: unknown };
   if (candidate.type !== "tool-call") return undefined;
   return isChatToolAction(candidate.artifact) ? candidate.artifact : undefined;
 }
@@ -753,7 +765,7 @@ function hasTextContentAfterIndex(
     partIndex += 1
   ) {
     const part = parts[partIndex];
-    if (part?.type === "text" && part.text) return true;
+    if (part?.type === "text" && is.nonEmptyString(part.text)) return true;
   }
   return false;
 }
@@ -770,33 +782,38 @@ function ElicitationQuestionInput({
   value?: string;
 }) {
   const { t } = useTranslation();
-  const options = question.options;
+  const options = question.options ?? [];
   const [selection, setSelection] = useState<
     { label: string; type: "option" } | { type: "other" } | undefined
   >(() =>
-    value !== undefined && options?.some((option) => option.label === value)
+    value !== undefined && options.some((option) => option.label === value)
       ? { label: value, type: "option" }
       : undefined,
   );
   const selectedOptionLabel =
     selection?.type === "option" ? selection.label : value;
   const selectedOther = selection?.type === "other";
-  const showFreeformAnswer = !options?.length || selectedOther;
+  const hasOptions = options.length > 0;
+  const showFreeformAnswer = !hasOptions || selectedOther;
 
   return (
     <div className="space-y-2">
       <div>
-        {question.header ? (
-          <div className="text-[11px] font-medium text-muted-foreground uppercase">
+        {is.nonEmptyString(question.header) ? (
+          <div
+            className="
+            text-[11px] font-medium text-muted-foreground uppercase
+          "
+          >
             {question.header}
           </div>
         ) : null}
-        {question.question ? (
+        {is.nonEmptyString(question.question) ? (
           <div className="text-sm/5">{question.question}</div>
         ) : null}
       </div>
 
-      {options?.length ? (
+      {hasOptions ? (
         <div className="flex flex-col gap-1.5">
           {options.map((option) => (
             <button
@@ -825,7 +842,7 @@ function ElicitationQuestionInput({
               type="button"
             >
               <span>{option.label}</span>
-              {option.description ? (
+              {is.nonEmptyString(option.description) ? (
                 <span className="mt-0.5 block text-xs/4 text-muted-foreground">
                   {option.description}
                 </span>
@@ -1019,7 +1036,7 @@ function getToolOutputText(
   action: ChatToolAction | undefined,
   result: unknown,
 ) {
-  if (action?.outputText) return action.outputText;
+  if (is.nonEmptyString(action?.outputText)) return action.outputText;
   if (typeof result === "string") return result;
   if (result === undefined || result === null) return "";
   return JSON.stringify(result, null, 2);
@@ -1102,7 +1119,7 @@ function DataMessagePart(part: DataMessagePartProps) {
     return <ElicitationQuestionCard elicitation={part.data} />;
   }
 
-  return <JsonBlock label={part.name} value={part.data} />;
+  return <JsonBlock label={part.name} value={part.data as unknown} />;
 }
 
 function ElicitationQuestionCard({
@@ -1112,14 +1129,14 @@ function ElicitationQuestionCard({
 }) {
   const { t } = useTranslation();
   const { resolveElicitation } = useChatRuntimeActions();
-  const questions = elicitation.questions;
+  const questions = elicitation.questions ?? [];
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [fallbackAnswer, setFallbackAnswer] = useState("");
   const [submittedResponseType, setSubmittedResponseType] =
     useState<ChatElicitationResponse["type"]>();
   const awaitingInput = elicitation.phase === "open" && !submittedResponseType;
-  const hasInputQuestions =
-    elicitation.kind === "userInput" || Boolean(questions?.length);
+  const hasQuestions = questions.length > 0;
+  const hasInputQuestions = elicitation.kind === "userInput" || hasQuestions;
   const isPermissionRequest =
     isPermissionElicitation(elicitation) && !hasInputQuestions;
 
@@ -1144,7 +1161,9 @@ function ElicitationQuestionCard({
       ? "cancelled"
       : "resolved:Answers"
     : elicitation.phase;
-  const title = elicitation.title || t("common.question");
+  const title = is.nonEmptyString(elicitation.title)
+    ? elicitation.title
+    : t("common.question");
   const [manualOpen, setManualOpen] = useState<boolean | undefined>();
   const open = manualOpen ?? awaitingInput;
 
@@ -1155,7 +1174,7 @@ function ElicitationQuestionCard({
   };
 
   const submitAnswers = () => {
-    const responseAnswers = questions?.length
+    const responseAnswers = hasQuestions
       ? questions.map((question) => {
           const value = answers[question.id];
           if (value === undefined) {
@@ -1189,7 +1208,11 @@ function ElicitationQuestionCard({
         <CircleHelp className="size-3.5 shrink-0 text-muted-foreground" />
         <div className="min-w-0 flex-1">
           <div className="truncate font-medium">{title}</div>
-          <div className="mt-0.5 flex items-center gap-1.5 text-muted-foreground">
+          <div
+            className="
+            mt-0.5 flex items-center gap-1.5 text-muted-foreground
+          "
+          >
             <span>{formatElicitationKind(elicitation.kind, t)}</span>
             <span aria-hidden>·</span>
             <span>{formatElicitationPhase(phase, t)}</span>
@@ -1215,7 +1238,7 @@ function ElicitationQuestionCard({
             dark:border-white/10
           "
         >
-          {elicitation.body ? (
+          {is.nonEmptyString(elicitation.body) ? (
             <div className="text-sm/5 whitespace-pre-wrap">
               {elicitation.body}
             </div>
@@ -1229,7 +1252,7 @@ function ElicitationQuestionCard({
             />
           ) : (
             <div className="space-y-3">
-              {questions?.length ? (
+              {hasQuestions ? (
                 questions.map((question) => (
                   <ElicitationQuestionInput
                     disabled={!awaitingInput}
@@ -1391,7 +1414,7 @@ function PlanMessagePart({ plan }: { plan: ChatPlanData }) {
             ) : (
               <span>{t("common.draft")}</span>
             )}
-            {plan.path ? (
+            {is.nonEmptyString(plan.path) ? (
               <>
                 <span aria-hidden>·</span>
                 <span className="truncate">{plan.path}</span>
@@ -1422,7 +1445,7 @@ function PlanMessagePart({ plan }: { plan: ChatPlanData }) {
               dark:border-white/10
             "
           >
-            {plan.text ? (
+            {is.nonEmptyString(plan.text) ? (
               <div className="p-2">
                 <Streamdown
                   className={assistantTextContainerClassName}
@@ -1437,7 +1460,7 @@ function PlanMessagePart({ plan }: { plan: ChatPlanData }) {
                 </Streamdown>
               </div>
             ) : null}
-            {plan.path ? (
+            {is.nonEmptyString(plan.path) ? (
               <div
                 className="
                   flex min-w-0 items-center gap-2 rounded-md border
@@ -1454,10 +1477,10 @@ function PlanMessagePart({ plan }: { plan: ChatPlanData }) {
             ) : null}
             {plan.entries.length > 0 ? (
               <ol className="space-y-2">
-                {plan.entries.map((entry, index) => (
+                {plan.entries.map((entry) => (
                   <li
                     className="flex min-w-0 gap-2"
-                    key={`${entry.content}-${index}`}
+                    key={`${entry.status}:${entry.content}`}
                   >
                     <PlanEntryStatusIcon status={entry.status} />
                     <span
@@ -1606,7 +1629,7 @@ function MessageAttachment({ attachment }: { attachment: CompleteAttachment }) {
         ? imageFilePreviewUrl(filePart.data, filePart.mimeType)
         : undefined));
   const previewText =
-    !previewUrl && filePart && !isMention
+    !is.nonEmptyString(previewUrl) && filePart !== undefined && !isMention
       ? textFilePreview(filePart.data, filePart.mimeType)
       : undefined;
 

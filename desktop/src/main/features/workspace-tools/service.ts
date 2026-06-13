@@ -1,3 +1,4 @@
+import type { Dirent } from "node:fs";
 import type {
   WorkspaceFileReadResult,
   WorkspaceFileTreeResult,
@@ -7,12 +8,12 @@ import type {
   WorkspaceToolGitStatus,
   WorkspaceToolGitStatusEntry,
 } from "../../../shared/workspace-tools";
-import type { Dirent } from "node:fs";
 
 import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
+import is from "@sindresorhus/is";
 
 const execFileAsync = promisify(execFile);
 
@@ -41,7 +42,7 @@ export async function workspaceFileTree(
   const root = await resolveWorkspaceRoot(rootInput);
   const scan = await scanWorkspaceTree(root);
   const gitRoot = await gitRootFor(root);
-  const gitStatus = gitRoot
+  const gitStatus = is.nonEmptyString(gitRoot)
     ? await gitStatusEntries({ gitRoot, root }).catch(() => [])
     : [];
 
@@ -58,7 +59,7 @@ export async function workspaceGitDiff(
 ): Promise<WorkspaceGitDiffResult> {
   const root = await resolveWorkspaceRoot(rootInput);
   const gitRoot = await gitRootFor(root);
-  if (!gitRoot) {
+  if (!is.nonEmptyString(gitRoot)) {
     return {
       isGitRepository: false,
       root,
@@ -120,12 +121,12 @@ export async function workspaceGitCommit({
 }): Promise<WorkspaceToolGitCommitResult> {
   const root = await resolveWorkspaceRoot(rootInput);
   const gitRoot = await gitRootFor(root);
-  if (!gitRoot) {
+  if (!is.nonEmptyString(gitRoot)) {
     throw new Error("Workspace root is not a Git repository.");
   }
 
   const trimmedSummary = summary.trim();
-  if (!trimmedSummary) {
+  if (!is.nonEmptyString(trimmedSummary)) {
     throw new Error("Commit summary is required.");
   }
 
@@ -138,7 +139,7 @@ export async function workspaceGitCommit({
 
   const commitArgs = ["commit", "-m", trimmedSummary];
   const trimmedDescription = description?.trim();
-  if (trimmedDescription) {
+  if (is.nonEmptyString(trimmedDescription)) {
     commitArgs.push("-m", trimmedDescription);
   }
   commitArgs.push("--only", "--", ...paths);
@@ -159,7 +160,7 @@ export async function workspaceReadFile(
   const root = await resolveWorkspaceRoot(rootInput);
   const absolutePath = resolveWorkspaceTreePath(root, treePathInput);
   const treePath = absolutePathToTreePath(root, absolutePath);
-  if (!treePath) {
+  if (!is.nonEmptyString(treePath)) {
     throw new Error("Workspace file path must stay inside the workspace root.");
   }
 
@@ -261,7 +262,7 @@ async function scanWorkspaceTree(root: string) {
 
   while (dirs.length > 0) {
     const dir = dirs.shift();
-    if (!dir) break;
+    if (!is.nonEmptyString(dir)) break;
 
     let entries: Dirent<string>[];
     try {
@@ -334,7 +335,7 @@ async function gitStatusEntries({
   for (const entry of entries) {
     const absolutePath = path.resolve(gitRoot, entry.path);
     const treePath = absolutePathToTreePath(root, absolutePath);
-    if (!treePath) continue;
+    if (!is.nonEmptyString(treePath)) continue;
 
     const current = byPath.get(treePath);
     if (!current) {

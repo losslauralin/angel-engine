@@ -1,31 +1,16 @@
-import type { ChatElicitationResponse } from "@shared/chat";
-
 import type { ReactNode } from "react";
-import { createContext, useContext, useMemo } from "react";
+import type { ChatRuntimeActionsContextValue } from "@/features/chat/runtime/chat-runtime-actions-context-value";
+import { useMemo } from "react";
+import { ChatRuntimeActionsContext } from "@/features/chat/runtime/chat-runtime-actions-context-value";
 import {
   useChatPermissionBypassEnabled,
   useChatRunStore,
 } from "@/features/chat/state/chat-run-store";
 
-interface ChatRuntimeActionsContextValue {
-  enablePermissionBypass: (response: ChatElicitationResponse) => void;
-  permissionBypassEnabled: boolean;
-  resolveElicitation: (
-    elicitationId: string,
-    response: ChatElicitationResponse,
-    localToolCallId?: string,
-  ) => void;
-  setMode: (mode: string) => Promise<void>;
-  setPermissionMode: (mode: string) => Promise<void>;
-}
-
 interface ChatRuntimeActionsProviderProps {
   children: ReactNode;
   slotKey: string;
 }
-
-const ChatRuntimeActionsContext =
-  createContext<ChatRuntimeActionsContextValue | null>(null);
 
 export function ChatRuntimeActionsProvider({
   children,
@@ -74,18 +59,8 @@ export function ChatRuntimeActionsProvider({
   );
 
   return (
-    <ChatRuntimeActionsContext.Provider value={value}>
+    <ChatRuntimeActionsContext value={value}>
       {children}
-    </ChatRuntimeActionsContext.Provider>
+    </ChatRuntimeActionsContext>
   );
-}
-
-export function useChatRuntimeActions(): ChatRuntimeActionsContextValue {
-  const value = useContext(ChatRuntimeActionsContext);
-  if (!value) {
-    throw new Error(
-      "useChatRuntimeActions must be used inside ChatRuntimeActionsProvider.",
-    );
-  }
-  return value;
 }

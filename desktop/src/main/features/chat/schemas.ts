@@ -1,14 +1,14 @@
 import { type } from "arktype";
 
 // Stream IPC schemas
-export const elicitationAnswer = type({
+const elicitationAnswer = type({
   id: "string > 0",
   value: "string > 0",
 });
 
 const chatId = type("string > 0");
 
-export const elicitationResponse = type({
+const elicitationResponse = type({
   type: "'allow' | 'allowForSession' | 'deny' | 'cancel' | 'externalComplete' | 'answers' | 'dynamicToolResult' | 'raw'",
   "answers?": elicitationAnswer.array(),
   "success?": "boolean",

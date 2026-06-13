@@ -29,8 +29,9 @@ import {
 } from "@remixicon/react";
 
 import { isCustomAgentRuntime } from "@shared/agents";
+import is from "@sindresorhus/is";
 import { useQueryClient } from "@tanstack/react-query";
-import { useCallback, useId, useState } from "react";
+import { useCallback, useId, useReducer, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -82,6 +83,53 @@ const agentIconUrl: Partial<Record<AgentRuntime, string>> = {
   opencode: opencodeIconUrl,
   qoder: qoderIconUrl,
 };
+
+interface CustomAgentFormState {
+  args: string;
+  autoAuthenticate: boolean;
+  command: string;
+  environment: string;
+  label: string;
+  needAuth: boolean;
+  saving: boolean;
+}
+
+type CustomAgentFormAction =
+  | {
+      field: Exclude<keyof CustomAgentFormState, "saving">;
+      type: "field";
+      value: boolean | string;
+    }
+  | { saving: boolean; type: "saving" };
+
+function createCustomAgentFormState(
+  agent: CustomAgent | null,
+): CustomAgentFormState {
+  return {
+    args: agent?.args.join("\n") ?? "",
+    autoAuthenticate: agent?.autoAuthenticate ?? false,
+    command: agent?.command ?? "",
+    environment:
+      agent?.environment
+        .map((item) => `${item.name}=${item.value}`)
+        .join("\n") ?? "",
+    label: agent?.label ?? "",
+    needAuth: agent?.needAuth ?? false,
+    saving: false,
+  };
+}
+
+function customAgentFormReducer(
+  state: CustomAgentFormState,
+  action: CustomAgentFormAction,
+): CustomAgentFormState {
+  switch (action.type) {
+    case "field":
+      return { ...state, [action.field]: action.value };
+    case "saving":
+      return { ...state, saving: action.saving };
+  }
+}
 
 export function SettingsPage({
   agentSettings,
@@ -285,7 +333,7 @@ export function SettingsPage({
                             rounded-lg border border-foreground/10 bg-background
                           "
                         >
-                          {iconUrl ? (
+                          {is.nonEmptyString(iconUrl) ? (
                             <img
                               alt=""
                               className="size-5 object-contain"
@@ -445,7 +493,9 @@ function SettingsGroup({
 }) {
   return (
     <section className="space-y-2">
-      {title ? <h3 className="text-sm font-semibold">{title}</h3> : null}
+      {is.nonEmptyString(title) ? (
+        <h3 className="text-sm font-semibold">{title}</h3>
+      ) : null}
       <div
         className="
           divide-y divide-border overflow-hidden rounded-lg border bg-card
@@ -550,11 +600,7 @@ function CustomAgentsSettingsGroup({
               <span className="block truncate text-sm font-medium">
                 {agent.label}
               </span>
-              <span
-                className="
-                mt-0.5 block truncate text-xs text-muted-foreground
-              "
-              >
+              <span className="mt-0.5 block truncate text-xs text-muted-foreground">
                 {[agent.command, ...agent.args].join(" ")}
               </span>
             </span>
@@ -608,21 +654,24 @@ function CustomAgentForm({
   onCreate: (input: CreateCustomAgentInput) => Promise<void>;
   onUpdate: (input: UpdateCustomAgentInput) => Promise<void>;
 }) {
-  const [label, setLabel] = useState(agent?.label ?? "");
-  const [command, setCommand] = useState(agent?.command ?? "");
-  const [args, setArgs] = useState(agent?.args.join("\n") ?? "");
-  const [environment, setEnvironment] = useState(
-    agent?.environment.map((item) => `${item.name}=${item.value}`).join("\n") ??
-      "",
+  const formId = useId();
+  const [formState, dispatchForm] = useReducer(
+    customAgentFormReducer,
+    agent,
+    createCustomAgentFormState,
   );
-  const [needAuth, setNeedAuth] = useState(agent?.needAuth ?? false);
-  const [autoAuthenticate, setAutoAuthenticate] = useState(
-    agent?.autoAuthenticate ?? false,
-  );
-  const [saving, setSaving] = useState(false);
+  const {
+    args,
+    autoAuthenticate,
+    command,
+    environment,
+    label,
+    needAuth,
+    saving,
+  } = formState;
   const canSave = label.trim().length > 0 && command.trim().length > 0;
   const save = useCallback(async () => {
-    setSaving(true);
+    dispatchForm({ saving: true, type: "saving" });
     const input = {
       args: argsToList(args),
       autoAuthenticate,
@@ -638,7 +687,7 @@ function CustomAgentForm({
         await onCreate(input);
       }
     } finally {
-      setSaving(false);
+      dispatchForm({ saving: false, type: "saving" });
     }
   }, [
     agent,
@@ -655,57 +704,112 @@ function CustomAgentForm({
   return (
     <article className="space-y-3 px-4 py-3">
       <div className="grid grid-cols-2 gap-3">
-        <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
+        <label
+          className="space-y-1.5 text-xs font-medium text-muted-foreground"
+          htmlFor={`${formId}-name`}
+        >
           Name
           <Input
-            onChange={(event) => setLabel(event.currentTarget.value)}
+            id={`${formId}-name`}
+            onChange={(event) =>
+              dispatchForm({
+                field: "label",
+                type: "field",
+                value: event.currentTarget.value,
+              })
+            }
             value={label}
           />
         </label>
-        <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
+        <label
+          className="space-y-1.5 text-xs font-medium text-muted-foreground"
+          htmlFor={`${formId}-command`}
+        >
           Command
           <Input
-            onChange={(event) => setCommand(event.currentTarget.value)}
+            id={`${formId}-command`}
+            onChange={(event) =>
+              dispatchForm({
+                field: "command",
+                type: "field",
+                value: event.currentTarget.value,
+              })
+            }
             placeholder="my-agent"
             value={command}
           />
         </label>
       </div>
       <label
-        className="
-        block space-y-1.5 text-xs font-medium text-muted-foreground
-      "
+        className="block space-y-1.5 text-xs font-medium text-muted-foreground"
+        htmlFor={`${formId}-args`}
       >
         Args
         <Textarea
           className="min-h-20 text-sm"
-          onChange={(event) => setArgs(event.currentTarget.value)}
+          id={`${formId}-args`}
+          onChange={(event) =>
+            dispatchForm({
+              field: "args",
+              type: "field",
+              value: event.currentTarget.value,
+            })
+          }
           placeholder={"acp\n--stdio"}
           value={args}
         />
       </label>
       <label
-        className="
-        block space-y-1.5 text-xs font-medium text-muted-foreground
-      "
+        className="block space-y-1.5 text-xs font-medium text-muted-foreground"
+        htmlFor={`${formId}-environment`}
       >
         Environment
         <Textarea
           className="min-h-20 text-sm"
-          onChange={(event) => setEnvironment(event.currentTarget.value)}
+          id={`${formId}-environment`}
+          onChange={(event) =>
+            dispatchForm({
+              field: "environment",
+              type: "field",
+              value: event.currentTarget.value,
+            })
+          }
           placeholder={"API_KEY=value\nBASE_URL=https://example.com"}
           value={environment}
         />
       </label>
       <div className="flex items-center gap-5">
-        <label className="flex items-center gap-2 text-sm">
-          <Switch checked={needAuth} onCheckedChange={setNeedAuth} />
+        <label
+          className="flex items-center gap-2 text-sm"
+          htmlFor={`${formId}-need-auth`}
+        >
+          <Switch
+            checked={needAuth}
+            id={`${formId}-need-auth`}
+            onCheckedChange={(checked) =>
+              dispatchForm({
+                field: "needAuth",
+                type: "field",
+                value: checked,
+              })
+            }
+          />
           Requires authentication
         </label>
-        <label className="flex items-center gap-2 text-sm">
+        <label
+          className="flex items-center gap-2 text-sm"
+          htmlFor={`${formId}-auto-authenticate`}
+        >
           <Switch
             checked={autoAuthenticate}
-            onCheckedChange={setAutoAuthenticate}
+            id={`${formId}-auto-authenticate`}
+            onCheckedChange={(checked) =>
+              dispatchForm({
+                field: "autoAuthenticate",
+                type: "field",
+                value: checked,
+              })
+            }
           />
           Auto authenticate
         </label>
@@ -759,7 +863,7 @@ function SettingsRow({
         muted && "text-muted-foreground",
       )}
     >
-      {icon ? (
+      {!is.falsy(icon) ? (
         <span
           className="
             flex size-8 shrink-0 items-center justify-center rounded-md border
@@ -769,9 +873,11 @@ function SettingsRow({
           {icon}
         </span>
       ) : null}
-      {children ?? (
+      {!is.falsy(children) ? (
+        children
+      ) : (
         <span className="min-w-0 flex-1">
-          {title ? (
+          {is.nonEmptyString(title) ? (
             <span
               className={cn(
                 "block text-sm font-medium",
@@ -781,7 +887,7 @@ function SettingsRow({
               {title}
             </span>
           ) : null}
-          {description ? (
+          {is.nonEmptyString(description) ? (
             <span className="mt-1 block text-sm text-muted-foreground">
               {description}
             </span>

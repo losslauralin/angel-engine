@@ -1,5 +1,6 @@
 const fs = require("node:fs");
 const path = require("node:path");
+const process = require("node:process");
 const packageApp = require("@electron-forge/core/dist/api/package").default;
 
 const desktopRoot = path.resolve(__dirname, "..");

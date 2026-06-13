@@ -6,7 +6,14 @@ import importPlugin from "eslint-plugin-import-x";
 export default antfu(
   {
     type: "app",
-    ignores: [".vite/**", "dist/**", "node_modules/**", "out/**"],
+    ignores: [
+      ".vite/**",
+      "dist/**",
+      "node_modules/**",
+      "out/**",
+      "src/renderer/components/ai-elements/**",
+      "src/renderer/components/ui/**",
+    ],
     react: true,
     typescript: {
       tsconfigPath: "tsconfig.json",

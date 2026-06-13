@@ -1,0 +1,33 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "workspaces": {
+    "desktop": {
+      "entry": [
+        "forge.config.ts",
+        "scripts/*.cjs",
+        "src/main/index.ts",
+        "src/preload/index.ts",
+        "src/renderer/main.tsx",
+        "src/shared/**/*.ts",
+        "vite.main.config.ts",
+        "vite.preload.config.ts",
+        "vite.renderer.config.mts"
+      ],
+      "ignore": [
+        "src/renderer/components/ai-elements/**",
+        "src/renderer/components/ui/**"
+      ],
+      "ignoreDependencies": ["react-grab"],
+      "project": ["**/*.{cjs,mts,ts,tsx}"]
+    },
+    "packages/js-client": {
+      "entry": [
+        "src/**/*.ts",
+        "playground/index.html",
+        "playground/src/main.tsx",
+        "playground/vite.config.ts"
+      ],
+      "project": ["src/**/*.ts", "playground/**/*.{css,html,ts,tsx}"]
+    }
+  }
+}

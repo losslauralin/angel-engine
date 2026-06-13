@@ -10,6 +10,7 @@ import type {
 } from "../../shared/workspace-tool-surface";
 
 import path from "node:path";
+import is from "@sindresorhus/is";
 import { BrowserWindow, ipcMain, screen } from "electron";
 
 import {
@@ -248,7 +249,9 @@ function workspaceToolSurfaceState(): WorkspaceToolSurfaceState {
   return {
     context: workspaceToolContext,
     host: workspaceToolHost,
-    snapshot: chatId ? (workspaceToolSnapshots.get(chatId) ?? null) : null,
+    snapshot: is.nonEmptyString(chatId)
+      ? (workspaceToolSnapshots.get(chatId) ?? null)
+      : null,
   };
 }
 
@@ -283,13 +286,13 @@ function updateWorkspaceToolWindowTitle() {
 
 function workspaceToolWindowTitle() {
   const root = workspaceToolContext.root;
-  const rootName = root ? path.basename(root) || root : undefined;
+  const rootName = is.nonEmptyString(root)
+    ? is.nonEmptyString(path.basename(root))
+      ? path.basename(root)
+      : root
+    : undefined;
 
-  return rootName
+  return is.nonEmptyString(rootName)
     ? `Angel Engine · Workspace tools · ${rootName}`
     : "Angel Engine · Workspace tools";
-}
-
-export function openWorkspaceToolWindow() {
-  return setWorkspaceToolSurfaceHost("window");
 }

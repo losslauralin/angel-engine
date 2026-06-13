@@ -6,7 +6,7 @@ import {
   RiLoader4Line as Loader2,
   RiMessage2Line as MessageSquare,
 } from "@remixicon/react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, m } from "framer-motion";
 import { useMemo } from "react";
 
 import { useTranslation } from "react-i18next";
@@ -17,9 +17,9 @@ import {
   SidebarGroupLabel,
   SidebarMenu,
 } from "@/components/ui/sidebar";
+import { sidebarMotion } from "@/components/workspace-sidebar-motion";
 import {
   AnimatedSidebarMenuItem,
-  sidebarMotion,
   WorkspaceSidebarMenuButton,
 } from "@/components/workspace-sidebar-primitives";
 import { ChatSidebarItem } from "@/features/chat/components/chat-sidebar-item";
@@ -116,7 +116,7 @@ export function SimpleChatSidebarSection({
                       className="
                         h-7 cursor-default pr-1.5
                         hover:bg-black/[0.035]
-                        dark:hover:bg-white/[0.055]
+                        dark:hover:bg-white/5.5
                       "
                     >
                       <button
@@ -128,18 +128,18 @@ export function SimpleChatSidebarSection({
                         <span className="min-w-0 flex-1 truncate text-left">
                           {label}
                         </span>
-                        <motion.span
+                        <m.span
                           animate={{ rotate: isExpanded ? 90 : 0 }}
                           className="ml-1 shrink-0 opacity-75"
                           transition={sidebarMotion}
                         >
                           <ChevronRight className="size-3.5" />
-                        </motion.span>
+                        </m.span>
                       </button>
                     </SidebarGroupLabel>
                     <AnimatePresence initial={false}>
                       {isExpanded ? (
-                        <motion.div
+                        <m.div
                           animate={{ height: "auto", opacity: 1 }}
                           className="overflow-hidden"
                           exit={{ height: 0, opacity: 0 }}
@@ -170,7 +170,7 @@ export function SimpleChatSidebarSection({
                               </AnimatedSidebarMenuItem>
                             ))}
                           </SidebarMenu>
-                        </motion.div>
+                        </m.div>
                       ) : null}
                     </AnimatePresence>
                   </div>

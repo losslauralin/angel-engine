@@ -10,6 +10,7 @@ import type {
 } from "@/app/workspace/workspace-thread-types";
 import type { useApi } from "@/platform/use-api";
 import { RiErrorWarningLine as AlertCircle } from "@remixicon/react";
+import is from "@sindresorhus/is";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { Component, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
@@ -395,7 +396,7 @@ function ChatThreadRuntime({
       >
         <AssistantThread
           composerFloatingAccessory={
-            projectContext.name ? (
+            is.nonEmptyString(projectContext.name) ? (
               <ReadonlyProjectLabel
                 labelSuffix={projectContext.isWorktree ? "worktree" : undefined}
                 projectName={projectContext.name}
@@ -435,9 +436,9 @@ export class ChatRestoreErrorBoundary extends Component<
         >
           <div
             className={`
-              ${workspaceContentColumnClass} flex items-start gap-3 rounded-lg border
-              border-rose-500/20 bg-rose-500/8 px-4 py-3 text-sm text-rose-950
-              shadow-sm
+              ${workspaceContentColumnClass}
+              flex items-start gap-3 rounded-lg border border-rose-500/20
+              bg-rose-500/8 px-4 py-3 text-sm text-rose-950 shadow-sm
               dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-100
             `}
             role="alert"

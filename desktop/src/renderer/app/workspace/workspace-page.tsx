@@ -7,6 +7,7 @@ import type {
   ChatRuntimeConfig,
 } from "@shared/chat";
 import type { Project, ProjectGitStatusResult } from "@shared/projects";
+import type { SetStateAction } from "react";
 import type {
   ChatRunOrigin,
   DraftAgentConfig,
@@ -19,12 +20,14 @@ import {
   resolveEnabledAgentRuntime,
   sanitizeAgentRuntimePreference,
 } from "@shared/agents";
+import is from "@sindresorhus/is";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Suspense,
   useCallback,
   useEffect,
   useMemo,
+  useReducer,
   useRef,
   useState,
 } from "react";
@@ -127,6 +130,84 @@ import { useApi } from "@/platform/use-api";
 const EMPTY_CHATS: Chat[] = [];
 const EMPTY_PROJECTS: Project[] = [];
 
+interface WorkspaceDraftState {
+  agentConfigs: Partial<Record<string, DraftAgentConfig>>;
+  creationLocations: Partial<Record<string, ChatCreationLocation>>;
+  runtimes: Partial<Record<string, AgentRuntime>>;
+  sessionIds: Partial<Record<string, number>>;
+}
+
+type WorkspaceDraftStateAction =
+  | {
+      action: SetStateAction<WorkspaceDraftState["agentConfigs"]>;
+      type: "agentConfigs";
+    }
+  | {
+      action: SetStateAction<WorkspaceDraftState["creationLocations"]>;
+      type: "creationLocations";
+    }
+  | {
+      action: SetStateAction<WorkspaceDraftState["runtimes"]>;
+      type: "runtimes";
+    }
+  | {
+      action: SetStateAction<WorkspaceDraftState["sessionIds"]>;
+      type: "sessionIds";
+    };
+
+const emptyWorkspaceDraftState: WorkspaceDraftState = {
+  agentConfigs: {},
+  creationLocations: {},
+  runtimes: {},
+  sessionIds: {},
+};
+
+function applyWorkspaceDraftSetState<T>(
+  current: T,
+  action: SetStateAction<T>,
+): T {
+  return typeof action === "function"
+    ? (action as (current: T) => T)(current)
+    : action;
+}
+
+function workspaceDraftStateReducer(
+  state: WorkspaceDraftState,
+  action: WorkspaceDraftStateAction,
+): WorkspaceDraftState {
+  switch (action.type) {
+    case "agentConfigs":
+      return {
+        ...state,
+        agentConfigs: applyWorkspaceDraftSetState(
+          state.agentConfigs,
+          action.action,
+        ),
+      };
+    case "creationLocations":
+      return {
+        ...state,
+        creationLocations: applyWorkspaceDraftSetState(
+          state.creationLocations,
+          action.action,
+        ),
+      };
+    case "runtimes":
+      return {
+        ...state,
+        runtimes: applyWorkspaceDraftSetState(state.runtimes, action.action),
+      };
+    case "sessionIds":
+      return {
+        ...state,
+        sessionIds: applyWorkspaceDraftSetState(
+          state.sessionIds,
+          action.action,
+        ),
+      };
+  }
+}
+
 interface WorkspacePageContentProps {
   api: ReturnType<typeof useApi>;
   currentRoutePath: string;
@@ -147,7 +228,9 @@ export function WorkspaceDraftPage({ projectId }: { projectId?: string }) {
   return (
     <WorkspacePageContent
       api={api}
-      currentRoutePath={projectId ? projectDraftRoutePath(projectId) : "/"}
+      currentRoutePath={
+        is.nonEmptyString(projectId) ? projectDraftRoutePath(projectId) : "/"
+      }
       draftProjectId={projectId}
     />
   );
@@ -166,24 +249,12 @@ export function WorkspaceChatPage({
     <WorkspacePageContent
       api={api}
       currentRoutePath={
-        projectId
+        is.nonEmptyString(projectId)
           ? projectChatRoutePath(projectId, chatId)
           : chatRoutePathId(chatId)
       }
       routeProjectId={projectId}
       selectedChatId={chatId}
-    />
-  );
-}
-
-export function WorkspaceSettingsPage() {
-  const api = useApi();
-
-  return (
-    <WorkspacePageContent
-      api={api}
-      currentRoutePath="/settings"
-      settingsActive
     />
   );
 }
@@ -268,25 +339,43 @@ function WorkspacePageContent({
     }
     previousWorkspaceModeRef.current = workspaceMode;
   }, [setRightSidebarOpen, workspaceMode]);
-  const [draftRuntimes, setDraftRuntimes] = useState<
-    Partial<Record<string, AgentRuntime>>
-  >({});
-  const [draftAgentConfigs, setDraftAgentConfigs] = useState<
-    Partial<Record<string, DraftAgentConfig>>
-  >({});
-  const [draftCreationLocations, setDraftCreationLocations] = useState<
-    Partial<Record<string, ChatCreationLocation>>
-  >({});
-  const [draftSessionIds, setDraftSessionIds] = useState<
-    Partial<Record<string, number>>
-  >({});
+  const [draftState, dispatchDraftState] = useReducer(
+    workspaceDraftStateReducer,
+    emptyWorkspaceDraftState,
+  );
+  const {
+    agentConfigs: draftAgentConfigs,
+    creationLocations: draftCreationLocations,
+    runtimes: draftRuntimes,
+    sessionIds: draftSessionIds,
+  } = draftState;
+  const setDraftAgentConfigs = useCallback(
+    (action: SetStateAction<WorkspaceDraftState["agentConfigs"]>) =>
+      dispatchDraftState({ action, type: "agentConfigs" }),
+    [],
+  );
+  const setDraftCreationLocations = useCallback(
+    (action: SetStateAction<WorkspaceDraftState["creationLocations"]>) =>
+      dispatchDraftState({ action, type: "creationLocations" }),
+    [],
+  );
+  const setDraftRuntimes = useCallback(
+    (action: SetStateAction<WorkspaceDraftState["runtimes"]>) =>
+      dispatchDraftState({ action, type: "runtimes" }),
+    [],
+  );
+  const setDraftSessionIds = useCallback(
+    (action: SetStateAction<WorkspaceDraftState["sessionIds"]>) =>
+      dispatchDraftState({ action, type: "sessionIds" }),
+    [],
+  );
   const [worktreeDirtyPrompt, setWorktreeDirtyPrompt] =
     useState<WorktreeDirtyPromptState | null>(null);
   const [rememberWorktreeDirtyChoice, setRememberWorktreeDirtyChoice] =
     useState(false);
   const draftSessionCounterRef = useRef(0);
   const [renameChatId, setRenameChatId] = useState<string | null>(null);
-  const isDraftPage = !selectedChatId && !settingsActive;
+  const isDraftPage = !is.nonEmptyString(selectedChatId) && !settingsActive;
 
   const projectsQuery = useQuery({
     ...projectListQueryOptions({ api }),
@@ -300,7 +389,7 @@ function WorkspacePageContent({
   const projects = projectsQuery.data ?? EMPTY_PROJECTS;
   const chats = chatsQuery.data ?? EMPTY_CHATS;
   const selectedChat = chats.find((chat) => chat.id === selectedChatId);
-  const renameTargetChat = renameChatId
+  const renameTargetChat = is.nonEmptyString(renameChatId)
     ? (chats.find((chat) => chat.id === renameChatId) ?? null)
     : null;
   const chatAttention = useChatAttentionSummary();
@@ -311,7 +400,7 @@ function WorkspacePageContent({
   const selectedProjectId = isDraftPage
     ? draftProject.id
     : (routeProjectId ?? selectedChat?.projectId ?? undefined);
-  const selectedProject = selectedProjectId
+  const selectedProject = is.nonEmptyString(selectedProjectId)
     ? projects.find((project) => project.id === selectedProjectId)
     : undefined;
   const selectedProjectPath = isDraftPage
@@ -319,16 +408,19 @@ function WorkspacePageContent({
     : (selectedProject?.path ?? selectedChat?.cwd);
   const selectedProjectName = isDraftPage
     ? draftProject.name
-    : selectedProjectPath
+    : is.nonEmptyString(selectedProjectPath)
       ? getProjectDisplayName(selectedProjectPath)
       : undefined;
-  const workspaceToolRoot = selectedChatId ? selectedProjectPath : undefined;
-  const canShowRightSidebar = showRightSidebar && Boolean(workspaceToolRoot);
+  const workspaceToolRoot = is.nonEmptyString(selectedChatId)
+    ? selectedProjectPath
+    : undefined;
+  const canShowRightSidebar =
+    showRightSidebar && is.nonEmptyString(workspaceToolRoot);
   const dockedWorkspaceToolContext =
     canShowRightSidebar &&
     workspaceToolHost === "sidebar" &&
-    selectedChatId &&
-    workspaceToolRoot
+    is.nonEmptyString(selectedChatId) &&
+    is.nonEmptyString(workspaceToolRoot)
       ? {
           chatId: selectedChatId,
           root: workspaceToolRoot,
@@ -339,8 +431,8 @@ function WorkspacePageContent({
       previousWorkspaceToolHostRef.current !== "sidebar" &&
       workspaceToolHost === "sidebar" &&
       canShowRightSidebar &&
-      selectedChatId &&
-      workspaceToolRoot
+      is.nonEmptyString(selectedChatId) &&
+      is.nonEmptyString(workspaceToolRoot)
     ) {
       setRightSidebarOpen(true);
     }
@@ -382,13 +474,13 @@ function WorkspacePageContent({
   const runtimePageKey = workspaceRuntimePageKey({
     chatRuntime,
     draftProjectId: routeDraftProjectId,
-    draftSessionId: draftRuntimeKey
+    draftSessionId: is.nonEmptyString(draftRuntimeKey)
       ? draftSessionIds[draftRuntimeKey]
       : undefined,
     selectedChatId,
     settingsActive,
   });
-  const draftRuntime = draftRuntimeKey
+  const draftRuntime = is.nonEmptyString(draftRuntimeKey)
     ? resolveEnabledAgentRuntime(
         agentSettings,
         draftRuntimes[draftRuntimeKey],
@@ -418,7 +510,9 @@ function WorkspacePageContent({
     ? requestedDraftCreationLocation
     : "project";
   const shouldPrewarmChat =
-    isDraftPage && (!routeDraftProjectId || Boolean(draftProject.path));
+    isDraftPage &&
+    (!is.nonEmptyString(routeDraftProjectId) ||
+      is.nonEmptyString(draftProject.path));
   const prewarmQuery = useQuery({
     ...chatPrewarmQueryOptions({
       api,
@@ -494,7 +588,7 @@ function WorkspacePageContent({
     const groupedChats = new Map<string, Chat[]>();
 
     for (const chat of chats) {
-      if (!chat.projectId) continue;
+      if (!is.nonEmptyString(chat.projectId)) continue;
 
       const projectChats = groupedChats.get(chat.projectId);
       if (projectChats) {
@@ -581,7 +675,7 @@ function WorkspacePageContent({
           reasoningEffort: reasoningEffortOverride,
         });
 
-      if (origin?.isDraft && runRuntime) {
+      if (origin?.isDraft === true && is.nonEmptyString(runRuntime)) {
         setDraftAgentConfigs((current) =>
           carryDraftAgentConfigToChat(current, {
             config: runConfig,
@@ -591,7 +685,7 @@ function WorkspacePageContent({
         );
       }
 
-      if (messages && runRuntime) {
+      if (messages !== undefined && is.nonEmptyString(runRuntime)) {
         const preference = agentRuntimePreferenceFromExplicitOverrides(
           runConfig ?? {},
         );
@@ -620,6 +714,7 @@ function WorkspacePageContent({
       modeOverride,
       modelOverride,
       setChatInCache,
+      setDraftAgentConfigs,
       permissionModeOverride,
       reasoningEffortOverride,
       runtimePageKey,
@@ -671,7 +766,7 @@ function WorkspacePageContent({
   const createProjectFromPicker = useCallback(async () => {
     try {
       const selectedPath = await api.projects.chooseDirectory();
-      if (!selectedPath) return undefined;
+      if (!is.nonEmptyString(selectedPath)) return undefined;
 
       return await createProjectMutation.mutateAsync(selectedPath);
     } catch (error) {
@@ -800,7 +895,9 @@ function WorkspacePageContent({
 
   const navigateToDraft = useCallback(
     (projectId?: string, options?: { replace?: boolean }) => {
-      const path = projectId ? projectDraftRoutePath(projectId) : "/";
+      const path = is.nonEmptyString(projectId)
+        ? projectDraftRoutePath(projectId)
+        : "/";
       if (location !== path) {
         navigate(path, options);
       }
@@ -862,6 +959,9 @@ function WorkspacePageContent({
       permissionModeOverride,
       reasoningEffortOverride,
       selectedChatRuntimeConfig,
+      setDraftAgentConfigs,
+      setDraftRuntimes,
+      setDraftSessionIds,
     ],
   );
 
@@ -916,7 +1016,7 @@ function WorkspacePageContent({
             },
       );
     },
-    [draftCreationLocationKey],
+    [draftCreationLocationKey, setDraftCreationLocations],
   );
 
   const confirmDirtyWorktree = useCallback(
@@ -949,7 +1049,7 @@ function WorkspacePageContent({
 
   const ensureDraftChatCanSubmit = useCallback(async () => {
     if (draftCreationLocation !== "worktree") return true;
-    if (!draftProject.id) return false;
+    if (!is.nonEmptyString(draftProject.id)) return false;
 
     try {
       const status = await api.projects.gitStatus({
@@ -970,7 +1070,7 @@ function WorkspacePageContent({
       }
 
       if (!status.isDirty || !worktreeDirtyPromptEnabled) return true;
-      return confirmDirtyWorktree(status);
+      return await confirmDirtyWorktree(status);
     } catch (error) {
       toast({
         description: getErrorMessage(error),
@@ -1122,7 +1222,7 @@ function WorkspacePageContent({
             />
             <main className="flex min-h-0 flex-1 overflow-hidden">
               <section className="flex min-h-0 min-w-0 flex-1 flex-col">
-                {selectedChatId ? (
+                {is.nonEmptyString(selectedChatId) ? (
                   selectedChatIsRunning && selectedChat ? (
                     <ActiveChatThread
                       draftAgentConfig={selectedChatAgentConfig}
@@ -1242,7 +1342,7 @@ function WorktreeDirtyDialog({
 
   return (
     <Dialog
-      open={state !== null}
+      open={!is.falsy(state)}
       onOpenChange={(open) => {
         if (!open) onClose(false);
       }}
@@ -1254,7 +1354,7 @@ function WorktreeDirtyDialog({
             {t("workspace.worktreeDirtyDescription")}
           </DialogDescription>
         </DialogHeader>
-        {projectPath ? (
+        {is.nonEmptyString(projectPath) ? (
           <div
             className="
               min-w-0 rounded-md border bg-muted/35 px-3 py-2 text-xs

@@ -10,6 +10,7 @@ import opencodeIconSvg from "@lobehub/icons-static-svg/icons/opencode.svg?raw";
 import qoderIconSvg from "@lobehub/icons-static-svg/icons/qoder.svg?raw";
 
 import { AGENT_OPTIONS, isBuiltinAgentRuntime } from "@shared/agents";
+import is from "@sindresorhus/is";
 
 const builtinAgentIconSvg: Record<BuiltinAgentRuntime, string> = {
   claude: claudeIconSvg,
@@ -31,6 +32,6 @@ export function agentRuntimeIconSvg(
 }
 
 export function agentRuntimeLabel(runtime?: string | null): string {
-  if (!runtime) return "Agent";
+  if (!is.nonEmptyString(runtime)) return "Agent";
   return AGENT_OPTIONS.find((agent) => agent.id === runtime)?.label ?? runtime;
 }

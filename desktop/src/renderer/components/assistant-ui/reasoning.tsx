@@ -36,7 +36,7 @@ const reasoningVariants = cva("aui-reasoning-root mb-3 w-full", {
   },
 });
 
-export type ReasoningRootProps = Omit<
+type ReasoningRootProps = Omit<
   ComponentProps<typeof Collapsible>,
   "onOpenChange" | "open"
 > &
@@ -56,7 +56,7 @@ function ReasoningRoot({
   ...props
 }: ReasoningRootProps) {
   const collapsibleRef = useRef<HTMLDivElement>(null);
-  const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(() => defaultOpen);
   const lockScroll = useScrollLock(collapsibleRef, ANIMATION_DURATION);
 
   const isControlled = controlledOpen !== undefined;
@@ -269,12 +269,4 @@ Reasoning.Content = ReasoningContent;
 Reasoning.Text = ReasoningText;
 ReasoningGroup.displayName = "ReasoningGroup";
 
-export {
-  Reasoning,
-  ReasoningContent,
-  ReasoningGroup,
-  ReasoningRoot,
-  ReasoningText,
-  ReasoningTrigger,
-  reasoningVariants,
-};
+export { Reasoning, ReasoningGroup };

@@ -8,7 +8,7 @@ import {
   RiAddLine as Plus,
 } from "@remixicon/react";
 
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, m } from "framer-motion";
 import { useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useWorkspaceUiStore } from "@/app/workspace/workspace-ui-store";
@@ -18,9 +18,9 @@ import {
   SidebarGroupContent,
   SidebarMenu,
 } from "@/components/ui/sidebar";
+import { sidebarMotion } from "@/components/workspace-sidebar-motion";
 import {
   AnimatedSidebarMenuItem,
-  sidebarMotion,
   SidebarSectionHeader,
   WorkspaceSidebarMenuAction,
   WorkspaceSidebarMenuButton,
@@ -80,12 +80,15 @@ export function ProjectSidebarSection({
       <SidebarSectionHeader label={t("sidebar.projects")}>
         <Button
           asChild
-          className="size-[1.5rem] [&_svg:not([class*='size-'])]:size-[0.75rem]"
+          className="
+            size-6
+            [&_svg:not([class*='size-'])]:size-3
+          "
           size="icon-xs"
           title={t("sidebar.addProject")}
           variant="ghost"
         >
-          <motion.button
+          <m.button
             onClick={() => void onCreateProject()}
             title={t("sidebar.addProject")}
             transition={sidebarMotion}
@@ -94,7 +97,7 @@ export function ProjectSidebarSection({
           >
             <FolderPlus />
             <span className="sr-only">{t("sidebar.addProject")}</span>
-          </motion.button>
+          </m.button>
         </Button>
       </SidebarSectionHeader>
       <SidebarGroupContent>
@@ -168,7 +171,7 @@ export function ProjectSidebarSection({
 
                   <AnimatePresence initial={false}>
                     {isExpanded ? (
-                      <motion.div
+                      <m.div
                         animate={{ height: "auto", opacity: 1 }}
                         className="overflow-hidden py-0.5"
                         exit={{ height: 0, opacity: 0 }}
@@ -210,7 +213,7 @@ export function ProjectSidebarSection({
                             </AnimatedSidebarMenuItem>
                           )}
                         </SidebarMenu>
-                      </motion.div>
+                      </m.div>
                     ) : null}
                   </AnimatePresence>
                 </AnimatedSidebarMenuItem>

@@ -115,7 +115,7 @@ export interface ApiClient {
   workspaceTools: WorkspaceToolsApiClient;
 }
 
-export function createApiClient(): ApiClient {
+function createApiClient(): ApiClient {
   return {
     agents: {
       createCustom: async (input: CreateCustomAgentInput) =>

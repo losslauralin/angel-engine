@@ -5,11 +5,12 @@ import type { ReactNode } from "react";
 import {
   RiArchiveLine as Archive,
   RiCheckLine as Check,
-  RiDeleteBinLine as Trash2,
   RiGitBranchLine as GitBranch,
   RiRefreshLine as Restore,
+  RiDeleteBinLine as Trash2,
   RiCloseLine as X,
 } from "@remixicon/react";
+import is from "@sindresorhus/is";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -56,7 +57,7 @@ export function ArchivedSettingsPanel() {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
   const [projectFilter, setProjectFilter] = useState("all");
   const [bulkMode, setBulkMode] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const archivedChatsQuery = useQuery({
     ...archivedChatListQueryOptions({ api }),
   });
@@ -103,16 +104,6 @@ export function ArchivedSettingsPanel() {
       }),
     [queryClient],
   );
-
-  useEffect(() => {
-    setSelectedIds((current) => {
-      const visibleIds = new Set(filteredChats.map((chat) => chat.id));
-      const next = new Set(
-        [...current].filter((chatId) => visibleIds.has(chatId)),
-      );
-      return next.size === current.size ? current : next;
-    });
-  }, [filteredChats]);
 
   const restoreChats = useCallback(
     async (chats: Chat[]) => {
@@ -272,7 +263,12 @@ export function ArchivedSettingsPanel() {
       </div>
 
       {bulkMode ? (
-        <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+        <div
+          className="
+            flex items-center justify-between gap-3 text-xs
+            text-muted-foreground
+          "
+        >
           <div>
             {t("settings.archived.selectedCount", {
               count: selectedChats.length,
@@ -305,7 +301,7 @@ export function ArchivedSettingsPanel() {
               <div className="text-sm font-medium text-destructive">
                 {t("common.failed")}
               </div>
-              <div className="break-words text-xs text-muted-foreground">
+              <div className="text-xs wrap-break-word text-muted-foreground">
                 {archivedChatsQuery.error instanceof Error
                   ? archivedChatsQuery.error.message
                   : String(archivedChatsQuery.error)}
@@ -333,7 +329,9 @@ export function ArchivedSettingsPanel() {
                 disabled={busy}
                 key={chat.id}
                 project={
-                  chat.projectId ? projectsById.get(chat.projectId) : undefined
+                  is.nonEmptyString(chat.projectId)
+                    ? projectsById.get(chat.projectId)
+                    : undefined
                 }
                 selected={selectedIds.has(chat.id)}
                 onDelete={() => void deleteChats([chat])}
@@ -362,7 +360,11 @@ function ArchivedFilterSelect({
   value: string;
 }) {
   return (
-    <label className="flex min-w-44 flex-col gap-1.5 text-xs font-medium text-muted-foreground">
+    <label
+      className="
+        flex min-w-44 flex-col gap-1.5 text-xs font-medium text-muted-foreground
+      "
+    >
       {label}
       <NativeSelect
         aria-label={label}
@@ -399,7 +401,9 @@ function ArchivedChatRow({
 }) {
   const { t } = useTranslation();
   const isWorktree = Boolean(
-    project?.path && chat.cwd && chat.cwd !== project.path,
+    is.nonEmptyString(project?.path) &&
+    is.nonEmptyString(chat.cwd) &&
+    chat.cwd !== project.path,
   );
   const projectName = project
     ? getProjectDisplayName(project.path)
@@ -424,18 +428,28 @@ function ArchivedChatRow({
             {chat.title}
           </span>
           {isWorktree ? (
-            <span className="inline-flex shrink-0 items-center gap-1 rounded-sm bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">
+            <span
+              className="
+                inline-flex shrink-0 items-center gap-1 rounded-sm bg-muted
+                px-1.5 py-0.5 text-[11px] text-muted-foreground
+              "
+            >
               <GitBranch className="size-3" />
               {t("settings.archived.worktree")}
             </span>
           ) : null}
         </div>
-        <div className="mt-1 flex min-w-0 flex-wrap gap-x-2 gap-y-1 text-xs text-muted-foreground">
+        <div
+          className="
+            mt-1 flex min-w-0 flex-wrap gap-x-2 gap-y-1 text-xs
+            text-muted-foreground
+          "
+        >
           <span>{projectName}</span>
           <span>{chat.runtime}</span>
           <span>{formatDateTime(chat.updatedAt)}</span>
         </div>
-        {isWorktree && chat.cwd ? (
+        {isWorktree && is.nonEmptyString(chat.cwd) ? (
           <div className="mt-1 truncate text-xs text-muted-foreground/70">
             {chat.cwd}
           </div>
@@ -471,7 +485,9 @@ function ArchivedChatRow({
 
 function chatMatchesProjectFilter(chat: Chat, projectFilter: string) {
   if (projectFilter === "all") return true;
-  if (projectFilter === NO_PROJECT_FILTER) return !chat.projectId;
+  if (projectFilter === NO_PROJECT_FILTER) {
+    return !is.nonEmptyString(chat.projectId);
+  }
   return chat.projectId === projectFilter;
 }
 

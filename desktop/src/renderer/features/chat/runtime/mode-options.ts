@@ -2,7 +2,7 @@ import type { AgentValueOption } from "@shared/agents";
 
 const BUILD_MODE_FALLBACKS = ["build", "code", "default"];
 
-export type ModeOptionFamily = "agent" | "permission";
+type ModeOptionFamily = "agent" | "permission";
 
 export interface ModeOptionSelection {
   canSet: boolean;
@@ -38,13 +38,13 @@ export function findPlanModeToggleTarget(
   return undefined;
 }
 
-export function findPlanModeOption(
+function findPlanModeOption(
   options: AgentValueOption[],
 ): AgentValueOption | undefined {
   return options.find((option) => isModeOption(option, "plan"));
 }
 
-export function findBuildModeOption(
+function findBuildModeOption(
   options: AgentValueOption[],
 ): AgentValueOption | undefined {
   for (const mode of BUILD_MODE_FALLBACKS) {

@@ -13,6 +13,7 @@ import {
   RiToolsLine as ToolIcon,
 } from "@remixicon/react";
 import { isChatToolAction, isTerminalChatToolPhase } from "@shared/chat";
+import is from "@sindresorhus/is";
 import { cva } from "class-variance-authority";
 import { memo, useCallback, useRef, useState } from "react";
 
@@ -40,7 +41,7 @@ const toolGroupVariants = cva(
   },
 );
 
-export type ToolGroupRootProps = Omit<
+type ToolGroupRootProps = Omit<
   ComponentProps<typeof Collapsible>,
   "onOpenChange" | "open"
 > &
@@ -60,7 +61,7 @@ function ToolGroupRoot({
   ...props
 }: ToolGroupRootProps) {
   const collapsibleRef = useRef<HTMLDivElement>(null);
-  const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(() => defaultOpen);
   const lockScroll = useScrollLock(collapsibleRef, ANIMATION_DURATION);
 
   const isControlled = controlledOpen !== undefined;
@@ -245,7 +246,11 @@ function formatSingleToolGroupLabel(part: PartState, t: TFunction) {
   }
 
   const action = isChatToolAction(part.artifact) ? part.artifact : undefined;
-  const title = action?.title || action?.inputSummary || part.toolName;
+  const title = is.nonEmptyString(action?.title)
+    ? action.title
+    : is.nonEmptyString(action?.inputSummary)
+      ? action.inputSummary
+      : part.toolName;
   const phase = action?.phase ?? part.status.type;
   return `${title} · ${formatToolGroupPhase(phase, t)}`;
 }
@@ -306,8 +311,8 @@ function forEachToolGroupPart(
   const start = Math.max(0, startIndex);
   const end = Math.min(endIndex, parts.length - 1);
   for (let index = start; index <= end; index += 1) {
-    const part = parts[index];
-    if (part) visit(part);
+    const part = parts.at(index);
+    if (part !== undefined) visit(part);
   }
 }
 
@@ -330,10 +335,4 @@ ToolGroup.Root = ToolGroupRoot;
 ToolGroup.Trigger = ToolGroupTrigger;
 ToolGroup.Content = ToolGroupContent;
 
-export {
-  ToolGroup,
-  ToolGroupContent,
-  ToolGroupRoot,
-  ToolGroupTrigger,
-  toolGroupVariants,
-};
+export { ToolGroup };

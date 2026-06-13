@@ -9,6 +9,7 @@ import type {
   WorkspaceBrowserState,
 } from "../../../shared/workspace-browser";
 
+import is from "@sindresorhus/is";
 import { BrowserWindow, ipcMain, shell, WebContentsView } from "electron";
 
 import {
@@ -251,7 +252,10 @@ function detachWorkspaceBrowserView(
   if (!instance.attachment) {
     return;
   }
-  if (attachmentId && instance.attachment.attachmentId !== attachmentId) {
+  if (
+    is.nonEmptyString(attachmentId) &&
+    instance.attachment.attachmentId !== attachmentId
+  ) {
     return;
   }
 
@@ -269,7 +273,7 @@ function loadWorkspaceBrowserUrl(
   const nextUrl = workspaceBrowserLoadUrl(url);
 
   instance.url = nextUrl;
-  void instance.view.webContents.loadURL(nextUrl).catch((error) => {
+  void instance.view.webContents.loadURL(nextUrl).catch((error: unknown) => {
     console.error("Failed to load workspace browser URL.", {
       browserViewId: instance.browserViewId,
       error,
@@ -484,14 +488,14 @@ function parseNonEmptyString(value: unknown, label: string) {
 
 function parseDimension(value: unknown, label: string) {
   if (typeof value !== "number" || !Number.isFinite(value)) {
-    throw new Error(`${label} must be a finite number.`);
+    throw new TypeError(`${label} must be a finite number.`);
   }
   return Math.max(1, Math.round(value));
 }
 
 function parseCoordinate(value: unknown, label: string) {
   if (typeof value !== "number" || !Number.isFinite(value)) {
-    throw new Error(`${label} must be a finite number.`);
+    throw new TypeError(`${label} must be a finite number.`);
   }
   return Math.round(value);
 }

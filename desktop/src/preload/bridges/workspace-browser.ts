@@ -28,29 +28,53 @@ import {
 
 export function exposeWorkspaceBrowserBridge() {
   const workspaceBrowserApi = {
-    attach(input: WorkspaceBrowserAttachInput) {
-      return ipcRenderer.invoke(WORKSPACE_BROWSER_ATTACH_CHANNEL, input);
+    async attach(input: WorkspaceBrowserAttachInput) {
+      return ipcRenderer.invoke(
+        WORKSPACE_BROWSER_ATTACH_CHANNEL,
+        input,
+      ) as ReturnType<WorkspaceBrowserApi["attach"]>;
     },
-    create(input: WorkspaceBrowserCreateInput) {
-      return ipcRenderer.invoke(WORKSPACE_BROWSER_CREATE_CHANNEL, input);
+    async create(input: WorkspaceBrowserCreateInput) {
+      return ipcRenderer.invoke(
+        WORKSPACE_BROWSER_CREATE_CHANNEL,
+        input,
+      ) as ReturnType<WorkspaceBrowserApi["create"]>;
     },
-    destroy(input: WorkspaceBrowserCommandInput) {
-      return ipcRenderer.invoke(WORKSPACE_BROWSER_DESTROY_CHANNEL, input);
+    async destroy(input: WorkspaceBrowserCommandInput) {
+      return ipcRenderer.invoke(
+        WORKSPACE_BROWSER_DESTROY_CHANNEL,
+        input,
+      ) as ReturnType<WorkspaceBrowserApi["destroy"]>;
     },
-    detach(input: WorkspaceBrowserDetachInput) {
-      return ipcRenderer.invoke(WORKSPACE_BROWSER_DETACH_CHANNEL, input);
+    async detach(input: WorkspaceBrowserDetachInput) {
+      return ipcRenderer.invoke(
+        WORKSPACE_BROWSER_DETACH_CHANNEL,
+        input,
+      ) as ReturnType<WorkspaceBrowserApi["detach"]>;
     },
-    getState(input: WorkspaceBrowserCommandInput) {
-      return ipcRenderer.invoke(WORKSPACE_BROWSER_GET_STATE_CHANNEL, input);
+    async getState(input: WorkspaceBrowserCommandInput) {
+      return ipcRenderer.invoke(
+        WORKSPACE_BROWSER_GET_STATE_CHANNEL,
+        input,
+      ) as ReturnType<WorkspaceBrowserApi["getState"]>;
     },
-    goBack(input: WorkspaceBrowserCommandInput) {
-      return ipcRenderer.invoke(WORKSPACE_BROWSER_GO_BACK_CHANNEL, input);
+    async goBack(input: WorkspaceBrowserCommandInput) {
+      return ipcRenderer.invoke(
+        WORKSPACE_BROWSER_GO_BACK_CHANNEL,
+        input,
+      ) as ReturnType<WorkspaceBrowserApi["goBack"]>;
     },
-    goForward(input: WorkspaceBrowserCommandInput) {
-      return ipcRenderer.invoke(WORKSPACE_BROWSER_GO_FORWARD_CHANNEL, input);
+    async goForward(input: WorkspaceBrowserCommandInput) {
+      return ipcRenderer.invoke(
+        WORKSPACE_BROWSER_GO_FORWARD_CHANNEL,
+        input,
+      ) as ReturnType<WorkspaceBrowserApi["goForward"]>;
     },
-    navigate(input: WorkspaceBrowserNavigateInput) {
-      return ipcRenderer.invoke(WORKSPACE_BROWSER_NAVIGATE_CHANNEL, input);
+    async navigate(input: WorkspaceBrowserNavigateInput) {
+      return ipcRenderer.invoke(
+        WORKSPACE_BROWSER_NAVIGATE_CHANNEL,
+        input,
+      ) as ReturnType<WorkspaceBrowserApi["navigate"]>;
     },
     onEvent(
       browserViewId: string,
@@ -68,11 +92,17 @@ export function exposeWorkspaceBrowserBridge() {
         ipcRenderer.removeListener(channel, listener);
       };
     },
-    reload(input: WorkspaceBrowserCommandInput) {
-      return ipcRenderer.invoke(WORKSPACE_BROWSER_RELOAD_CHANNEL, input);
+    async reload(input: WorkspaceBrowserCommandInput) {
+      return ipcRenderer.invoke(
+        WORKSPACE_BROWSER_RELOAD_CHANNEL,
+        input,
+      ) as ReturnType<WorkspaceBrowserApi["reload"]>;
     },
-    setBounds(input: WorkspaceBrowserSetBoundsInput) {
-      return ipcRenderer.invoke(WORKSPACE_BROWSER_SET_BOUNDS_CHANNEL, input);
+    async setBounds(input: WorkspaceBrowserSetBoundsInput) {
+      return ipcRenderer.invoke(
+        WORKSPACE_BROWSER_SET_BOUNDS_CHANNEL,
+        input,
+      ) as ReturnType<WorkspaceBrowserApi["setBounds"]>;
     },
   } satisfies WorkspaceBrowserApi;
 

@@ -1,10 +1,11 @@
-import type { ChatAttentionState } from "@/features/chat/state/chat-run-store";
 import type { ReactNode } from "react";
+import type { ChatAttentionState } from "@/features/chat/state/chat-run-store";
 
 import {
   RiSidebarFoldLine as SidebarFold,
   RiSidebarUnfoldLine as SidebarUnfold,
 } from "@remixicon/react";
+import is from "@sindresorhus/is";
 import { useTranslation } from "react-i18next";
 import { WorkspaceSidebarControlTarget } from "@/app/workspace/workspace-sidebar-control";
 import { Button } from "@/components/ui/button";
@@ -89,7 +90,7 @@ export function WorkspaceHeader({
           ) : null}
         </span>
       ) : null}
-      {workspaceToolActions ? (
+      {!is.falsy(workspaceToolActions) ? (
         <div className="flex shrink-0 items-center gap-1">
           {workspaceToolActions}
         </div>

@@ -6,6 +6,7 @@ import type {
 } from "../../../shared/workspace-tools";
 import { tipc } from "@egoist/tipc/main";
 
+import is from "@sindresorhus/is";
 import { type as arkType } from "arktype";
 import {
   workspaceFileTree,
@@ -60,12 +61,10 @@ export const workspaceToolsIpcRouter = {
     .input<WorkspaceToolGitCommitInput>()
     .action(async ({ input }) => {
       if (
-        !input ||
-        typeof input.root !== "string" ||
-        input.root.length === 0 ||
-        typeof input.summary !== "string" ||
+        !is.nonEmptyString(input.root) ||
+        !is.string(input.summary) ||
         !Array.isArray(input.paths) ||
-        input.paths.some((path) => typeof path !== "string")
+        input.paths.some((path) => !is.string(path))
       ) {
         throw new TypeError(
           "Workspace root, selected paths, and commit summary are required.",

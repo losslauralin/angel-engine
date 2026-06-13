@@ -7,6 +7,7 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import is from "@sindresorhus/is";
 import { asc, eq } from "drizzle-orm";
 import { closeDatabase, getDatabase } from "../../db/client";
 import { projects } from "../../db/schema";
@@ -32,7 +33,7 @@ export function getProject(id: string): Project | null {
 
 export function createProject(input: CreateProjectInput): Project {
   const nextProject = {
-    id: input.id || randomUUID(),
+    id: is.nonEmptyString(input.id) ? input.id : randomUUID(),
     path: normalizeProjectPath(input.path),
   };
 
@@ -52,7 +53,7 @@ export function updateProject(input: UpdateProjectInput): Project {
     .returning()
     .get();
 
-  if (!project) {
+  if (is.falsy(project)) {
     throw new Error("Project not found.");
   }
 

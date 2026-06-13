@@ -10,6 +10,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
+import is from "@sindresorhus/is";
 
 import { getProject } from "./repository";
 
@@ -59,7 +60,7 @@ export async function createProjectWorktree(
   input: ProjectWorktreeCreateInput,
 ): Promise<ProjectWorktreeCreateResult> {
   const status = await projectGitStatus(input);
-  if (!status.isGitRepository || !status.root) {
+  if (!status.isGitRepository || !is.nonEmptyString(status.root)) {
     throw new Error("Project is not a git repository.");
   }
 
@@ -95,12 +96,12 @@ export async function createProjectWorktree(
   throw new Error("Could not create git worktree.");
 }
 
-export function managedWorktreeRoot() {
+function managedWorktreeRoot() {
   return path.join(os.homedir(), ".angel-engine", "worktrees");
 }
 
 export function managedWorktreePath(cwd: string | null | undefined) {
-  if (!cwd) return undefined;
+  if (!is.nonEmptyString(cwd)) return undefined;
 
   const root = path.resolve(managedWorktreeRoot());
   const resolvedCwd = path.resolve(cwd);
@@ -123,7 +124,7 @@ export async function removeManagedWorktree(
   cwd: string | null | undefined,
 ): Promise<string | undefined> {
   const worktreePath = managedWorktreePath(cwd);
-  if (!worktreePath) return undefined;
+  if (!is.nonEmptyString(worktreePath)) return undefined;
 
   if (fs.existsSync(worktreePath)) {
     await removeGitWorktree(worktreePath).catch(() => undefined);
@@ -173,16 +174,16 @@ async function removeGitWorktree(worktreePath: string) {
 
 function nonEmpty(value: string) {
   const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : undefined;
+  return is.nonEmptyString(trimmed) ? trimmed : undefined;
 }
 
 function normalizeGitError(error: unknown, fallback: string) {
-  if (error && typeof error === "object") {
-    const maybeError = error as { message?: unknown; stderr?: unknown };
-    if (typeof maybeError.stderr === "string" && maybeError.stderr.trim()) {
+  if (is.plainObject<{ message?: unknown; stderr?: unknown }>(error)) {
+    const maybeError = error;
+    if (is.nonEmptyString(maybeError.stderr)) {
       return new Error(maybeError.stderr.trim());
     }
-    if (typeof maybeError.message === "string" && maybeError.message.trim()) {
+    if (is.nonEmptyString(maybeError.message)) {
       return new Error(maybeError.message.trim());
     }
   }

@@ -9,6 +9,7 @@ import type {
 } from "../../../shared/chat";
 import type { ChatRuntime, ChatStreamControls } from "./runtime";
 
+import is from "@sindresorhus/is";
 import { type } from "arktype";
 import { ipcMain } from "electron";
 import {
@@ -68,7 +69,7 @@ export function registerChatStreamIpc(runtime: ChatRuntime) {
       abortControllers.set(request.streamId, abortController);
 
       const activeStream: ActiveChatStream = {
-        chat: request.input.chatId
+        chat: is.nonEmptyString(request.input.chatId)
           ? (getChat(request.input.chatId) ?? undefined)
           : undefined,
         notifiedElicitationIds: new Set(),

@@ -8,6 +8,7 @@ import type {
 } from "../../../shared/agents";
 import { randomUUID } from "node:crypto";
 
+import is from "@sindresorhus/is";
 import { eq } from "drizzle-orm";
 import { getDatabase } from "../../db/client";
 import { chats, customAgents } from "../../db/schema";
@@ -83,7 +84,7 @@ export function updateCustomAgent(input: UpdateCustomAgentInput): CustomAgent {
     .returning()
     .get();
 
-  if (!agent) {
+  if (is.falsy(agent)) {
     throw new Error("Custom agent not found.");
   }
   return customAgentFromRow(agent);
@@ -148,7 +149,7 @@ function requireCustomAgentId(id: string): CustomAgentRuntime {
 
 function normalizeRequiredString(value: string | undefined, label: string) {
   const normalized = value?.replace(/\s+/g, " ").trim();
-  if (!normalized) {
+  if (!is.nonEmptyString(normalized)) {
     throw new Error(`${label} is required.`);
   }
   return normalized;

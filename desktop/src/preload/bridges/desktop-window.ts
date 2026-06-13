@@ -3,6 +3,7 @@ import type {
   DesktopConfirmDeleteArchivedChatsInput,
   DesktopConfirmDeleteCustomAgentInput,
   DesktopConfirmSaveWorkspaceFileChangesInput,
+  DesktopConfirmSaveWorkspaceFileChangesResult,
   DesktopOpenChatFromNotificationEvent,
   DesktopThemeSetInput,
   DesktopUpdateDownloadedEvent,
@@ -15,6 +16,12 @@ import type {
   WorkspaceToolWindowOpenInput,
 } from "../../shared/workspace-tool-instances";
 
+import type {
+  WorkspaceToolSurfaceContextSetInput,
+  WorkspaceToolSurfaceHostSetInput,
+  WorkspaceToolSurfaceSnapshotSetInput,
+  WorkspaceToolSurfaceState,
+} from "../../shared/workspace-tool-surface";
 import { contextBridge, ipcRenderer } from "electron";
 import {
   DESKTOP_ACTIVE_CHAT_SET_CHANNEL,
@@ -31,30 +38,26 @@ import {
   DESKTOP_WINDOW_CLOSE_CURRENT_CHANNEL,
   DESKTOP_WORKSPACE_TOOL_CONTEXT_SET_CHANNEL,
   DESKTOP_WORKSPACE_TOOL_DIALOG_OPEN_CHANNEL,
+  DESKTOP_WORKSPACE_TOOL_INSTANCE_CLOSE_CHANNEL,
+  DESKTOP_WORKSPACE_TOOL_INSTANCE_REGISTER_CHANNEL,
+  DESKTOP_WORKSPACE_TOOL_INSTANCE_UPDATED_CHANNEL,
   DESKTOP_WORKSPACE_TOOL_SURFACE_CHANGED_CHANNEL,
   DESKTOP_WORKSPACE_TOOL_SURFACE_CONTEXT_SET_CHANNEL,
   DESKTOP_WORKSPACE_TOOL_SURFACE_FOCUS_CHANNEL,
   DESKTOP_WORKSPACE_TOOL_SURFACE_GET_CHANNEL,
   DESKTOP_WORKSPACE_TOOL_SURFACE_HOST_SET_CHANNEL,
   DESKTOP_WORKSPACE_TOOL_SURFACE_SNAPSHOT_SET_CHANNEL,
-  DESKTOP_WORKSPACE_TOOL_INSTANCE_CLOSE_CHANNEL,
-  DESKTOP_WORKSPACE_TOOL_INSTANCE_REGISTER_CHANNEL,
-  DESKTOP_WORKSPACE_TOOL_INSTANCE_UPDATED_CHANNEL,
-  DESKTOP_WORKSPACE_TOOL_WINDOW_GET_CHANNEL,
   DESKTOP_WORKSPACE_TOOL_WINDOW_CLOSED_CHANNEL,
+  DESKTOP_WORKSPACE_TOOL_WINDOW_GET_CHANNEL,
   DESKTOP_WORKSPACE_TOOL_WINDOW_OPEN_CHANNEL,
 } from "../../shared/desktop-window";
-import type {
-  WorkspaceToolSurfaceContextSetInput,
-  WorkspaceToolSurfaceHostSetInput,
-  WorkspaceToolSurfaceSnapshotSetInput,
-  WorkspaceToolSurfaceState,
-} from "../../shared/workspace-tool-surface";
 
 export function exposeDesktopWindowBridge() {
   contextBridge.exposeInMainWorld("desktopWindow", {
     async confirmDeleteAllChats() {
-      return ipcRenderer.invoke(DESKTOP_CONFIRM_DELETE_ALL_CHATS_CHANNEL);
+      return ipcRenderer.invoke(
+        DESKTOP_CONFIRM_DELETE_ALL_CHATS_CHANNEL,
+      ) as Promise<boolean>;
     },
     async confirmDeleteArchivedChats(
       input: DesktopConfirmDeleteArchivedChatsInput,
@@ -62,7 +65,7 @@ export function exposeDesktopWindowBridge() {
       return ipcRenderer.invoke(
         DESKTOP_CONFIRM_DELETE_ARCHIVED_CHATS_CHANNEL,
         input,
-      );
+      ) as Promise<boolean>;
     },
     async confirmDeleteCustomAgent(
       input: DesktopConfirmDeleteCustomAgentInput,
@@ -70,7 +73,7 @@ export function exposeDesktopWindowBridge() {
       return ipcRenderer.invoke(
         DESKTOP_CONFIRM_DELETE_CUSTOM_AGENT_CHANNEL,
         input,
-      );
+      ) as Promise<boolean>;
     },
     async confirmSaveWorkspaceFileChanges(
       input: DesktopConfirmSaveWorkspaceFileChangesInput,
@@ -78,7 +81,7 @@ export function exposeDesktopWindowBridge() {
       return ipcRenderer.invoke(
         DESKTOP_CONFIRM_SAVE_WORKSPACE_FILE_CHANGES_CHANNEL,
         input,
-      );
+      ) as Promise<DesktopConfirmSaveWorkspaceFileChangesResult>;
     },
     closeCurrent() {
       ipcRenderer.send(DESKTOP_WINDOW_CLOSE_CURRENT_CHANNEL);
@@ -192,7 +195,9 @@ export function exposeDesktopWindowBridge() {
       };
     },
     async installUpdate() {
-      return ipcRenderer.invoke(DESKTOP_INSTALL_UPDATE_CHANNEL);
+      return ipcRenderer.invoke(
+        DESKTOP_INSTALL_UPDATE_CHANNEL,
+      ) as Promise<unknown>;
     },
     openSettings() {
       ipcRenderer.send(DESKTOP_SETTINGS_OPEN_CHANNEL);

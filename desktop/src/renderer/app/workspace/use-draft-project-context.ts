@@ -1,5 +1,6 @@
 import type { Project } from "@shared/projects";
 
+import is from "@sindresorhus/is";
 import { useMemo } from "react";
 import { getProjectDisplayName } from "@/app/workspace/workspace-display";
 
@@ -15,14 +16,14 @@ export function useDraftProjectContext(
   projectId?: string,
 ): DraftProjectContext {
   return useMemo(() => {
-    const project = projectId
+    const project = is.nonEmptyString(projectId)
       ? projects.find((item) => item.id === projectId)
       : undefined;
     const path = project?.path;
 
     return {
       id: project?.id,
-      name: path ? getProjectDisplayName(path) : undefined,
+      name: is.nonEmptyString(path) ? getProjectDisplayName(path) : undefined,
       path,
       project,
     };

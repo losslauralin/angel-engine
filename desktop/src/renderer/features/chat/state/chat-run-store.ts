@@ -37,6 +37,7 @@ import {
   parseDataUrl,
   upsertChatElicitationPart,
 } from "@shared/chat";
+import is from "@sindresorhus/is";
 
 import { useSyncExternalStore } from "react";
 import { assign, createActor, setup } from "xstate";
@@ -406,7 +407,7 @@ const chatRunActions: Omit<ChatRunStore, keyof ChatRunContext> = {
   },
   setActiveChatId(chatId) {
     chatRunActor.send({
-      chatId: chatId || undefined,
+      chatId: is.nonEmptyString(chatId) ? chatId : undefined,
       type: "activeChat.changed",
     });
   },
@@ -538,13 +539,15 @@ export function useChatRunMessages(slotKey: string) {
 
 export function useChatRunIsRunning(slotKey?: string) {
   return useChatRunStore((state) =>
-    slotKey ? selectSlot(state, slotKey)?.status === "streaming" : false,
+    is.nonEmptyString(slotKey)
+      ? selectSlot(state, slotKey)?.status === "streaming"
+      : false,
   );
 }
 
 export function useChatRunConfig(slotKey?: string) {
   return useChatRunStore((state) =>
-    slotKey ? selectSlot(state, slotKey)?.config : undefined,
+    is.nonEmptyString(slotKey) ? selectSlot(state, slotKey)?.config : undefined,
   );
 }
 
@@ -603,8 +606,10 @@ function setActiveChatIdContext(
   state: ChatRunContext,
   chatId: string | undefined,
 ): Partial<ChatRunContext> {
-  const resolvedChatId = chatId ? resolveSlotKey(state, chatId) : undefined;
-  const attentions = resolvedChatId
+  const resolvedChatId = is.nonEmptyString(chatId)
+    ? resolveSlotKey(state, chatId)
+    : undefined;
+  const attentions = is.nonEmptyString(resolvedChatId)
     ? removeAttention(state.attentions, resolvedChatId, chatId)
     : state.attentions;
   if (
@@ -659,8 +664,11 @@ function removeAttention(
   attentions: Record<string, ChatAttentionState>,
   ...chatIds: Array<string | undefined>
 ) {
-  const ids = chatIds.filter((chatId): chatId is string => Boolean(chatId));
-  if (ids.length === 0 || !ids.some((chatId) => attentions[chatId])) {
+  const ids = chatIds.filter(is.nonEmptyString);
+  if (
+    ids.length === 0 ||
+    !ids.some((chatId) => attentions[chatId] !== undefined)
+  ) {
     return attentions;
   }
 
@@ -677,12 +685,12 @@ function initializeSlotContext(
   messages: EngineMessage[],
 ): Partial<ChatRunContext> {
   const resolvedKey = resolveSlotKey(state, input.slotKey);
-  const existing = state.slots[resolvedKey];
-  const isDraftSlot = !input.chatId;
+  const existing = getChatRunSlot(state.slots, resolvedKey);
+  const isDraftSlot = !is.nonEmptyString(input.chatId);
 
   if (
     isDraftSlot &&
-    state.aliases[input.slotKey] &&
+    is.nonEmptyString(state.aliases[input.slotKey]) &&
     !isSlotStreaming(existing)
   ) {
     const aliases = { ...state.aliases };
@@ -720,7 +728,7 @@ function initializeSlotContext(
   }
 
   if (
-    existing &&
+    existing !== undefined &&
     existing.historyRevision === input.historyRevision &&
     existing.config === input.config &&
     existing.chatId === (input.chatId ?? existing.chatId)
@@ -806,9 +814,9 @@ function cancelRunContext(
   slotKey: string,
 ): Partial<ChatRunContext> {
   const resolvedKey = resolveSlotKey(state, slotKey);
-  const slot = state.slots[resolvedKey];
+  const slot = getChatRunSlot(state.slots, resolvedKey);
   const activeRun = slot?.activeRun;
-  if (!slot || !activeRun) return {};
+  if (slot === undefined || activeRun === undefined) return {};
 
   return {
     slots: {
@@ -1384,7 +1392,7 @@ function markChatAttention(
   chatId: string | undefined,
   kind: ChatAttentionKind,
 ) {
-  if (!chatId) return;
+  if (!is.nonEmptyString(chatId)) return;
   const state = getChatRunContext();
   const resolvedChatId = resolveSlotKey(state, chatId);
   if (!shouldMarkChatAttention(state, resolvedChatId)) return;
@@ -1408,7 +1416,11 @@ function selectSlot(
   state: Pick<ChatRunStore, "aliases" | "slots">,
   key: string,
 ) {
-  return state.slots[resolveSlotKey(state, key)];
+  return getChatRunSlot(state.slots, resolveSlotKey(state, key));
+}
+
+function getChatRunSlot(slots: Record<string, ChatRunSlot>, key: string) {
+  return Object.hasOwn(slots, key) ? slots[key] : undefined;
 }
 
 function selectActiveRunForElicitation(
@@ -1418,11 +1430,9 @@ function selectActiveRunForElicitation(
   elicitationId?: string,
 ) {
   const slot = selectSlot(state, slotKey);
-  if (slot?.activeRun) return slot.activeRun;
+  if (slot?.activeRun !== undefined) return slot.activeRun;
 
-  const ids = new Set(
-    [toolCallId, elicitationId].filter((id): id is string => Boolean(id)),
-  );
+  const ids = new Set([toolCallId, elicitationId].filter(is.nonEmptyString));
   for (const candidate of Object.values(state.slots)) {
     if (!candidate.activeRun) continue;
     if (slotHasOpenElicitation(candidate, ids)) {
@@ -1449,7 +1459,7 @@ function partMatchesOpenElicitation(
     return (
       part.data.phase === "open" &&
       (ids.has(part.data.id) ||
-        Boolean(part.data.actionId && ids.has(part.data.actionId)))
+        (is.nonEmptyString(part.data.actionId) && ids.has(part.data.actionId)))
     );
   }
 
@@ -1461,9 +1471,8 @@ function partMatchesOpenElicitation(
     part.artifact.phase === "awaitingDecision" &&
     (ids.has(part.toolCallId) ||
       ids.has(part.artifact.id) ||
-      Boolean(
-        part.artifact.elicitationId && ids.has(part.artifact.elicitationId),
-      ))
+      (is.nonEmptyString(part.artifact.elicitationId) &&
+        ids.has(part.artifact.elicitationId)))
   );
 }
 
@@ -1578,13 +1587,18 @@ function enginePlanPresentationForLocation(
   return "updated";
 }
 
-function isEnginePlanPart(
-  part: EngineMessage["content"][number],
-): part is EngineMessage["content"][number] & {
+type EnginePlanPart = Omit<
+  EngineMessage["content"][number],
+  "data" | "name" | "type"
+> & {
   data: ChatPlanData;
   name: "plan" | "todo";
   type: "data";
-} {
+};
+
+function isEnginePlanPart(
+  part: EngineMessage["content"][number],
+): part is EnginePlanPart {
   return (
     part.type === "data" &&
     ((part as { name?: unknown }).name === "plan" ||
@@ -1644,13 +1658,14 @@ function appendToolActionDeltaPart(
     return deltaText.length;
   }
 
-  const output = previous.artifact.output ? [...previous.artifact.output] : [];
-  if (action.output) {
+  const output =
+    previous.artifact.output !== undefined ? [...previous.artifact.output] : [];
+  if (action.output !== undefined) {
     output.push(...action.output);
   }
   let previousOutputText = previous.artifact.outputText;
   if (previousOutputText === undefined) {
-    if (!previous.artifact.output) {
+    if (previous.artifact.output === undefined) {
       throw new Error("Tool action delta is missing previous output.");
     }
     previousOutputText = previous.artifact.output
@@ -1668,7 +1683,7 @@ function appendToolActionDeltaPart(
 
 function toolActionDeltaText(action: ChatToolAction) {
   if (action.outputText !== undefined) return action.outputText;
-  if (!action.output) {
+  if (action.output === undefined) {
     throw new Error("Tool action delta is missing output.");
   }
   return action.output.map((chunk) => chunk.text).join("");
@@ -1699,7 +1714,7 @@ function upsertElicitationPart(
   parts: ChatHistoryMessagePart[],
   elicitation: ChatElicitation,
 ) {
-  if (elicitation.actionId) {
+  if (is.nonEmptyString(elicitation.actionId)) {
     removeBackingHostCapabilityPart(parts, elicitation.actionId);
   }
   upsertChatElicitationPart(
@@ -1831,16 +1846,14 @@ function questionElicitationFromAction(
 function chatElicitationFromAction(
   action: ChatToolAction,
 ): ChatElicitation | undefined {
-  if (!action.rawInput) return undefined;
+  if (!is.nonEmptyString(action.rawInput)) return undefined;
   try {
     const parsed: unknown = JSON.parse(action.rawInput);
-    if (
-      parsed &&
-      typeof parsed === "object" &&
-      typeof (parsed as Partial<ChatElicitation>).id === "string" &&
-      typeof (parsed as Partial<ChatElicitation>).kind === "string"
-    ) {
-      return parsed as ChatElicitation;
+    if (is.plainObject(parsed)) {
+      const candidate = parsed as Partial<ChatElicitation>;
+      if (is.string(candidate.id) && is.string(candidate.kind)) {
+        return candidate as ChatElicitation;
+      }
     }
   } catch {
     return undefined;
@@ -1896,8 +1909,9 @@ function elicitationPhaseFromAction(
 }
 
 function actionHasOutput(action: ChatToolAction) {
-  return Boolean(
-    action.outputText || action.output?.some((output) => output.text),
+  return (
+    is.nonEmptyString(action.outputText) ||
+    action.output?.some((output) => is.nonEmptyString(output.text)) === true
   );
 }
 
@@ -1909,17 +1923,24 @@ function isEmptyHostCapabilityAction(action: ChatToolAction) {
   return (
     action.kind === "hostCapability" &&
     !action.error &&
-    !action.outputText &&
-    !action.output?.some((output) => output.text)
+    !is.nonEmptyString(action.outputText) &&
+    action.output?.some((output) => is.nonEmptyString(output.text)) !== true
   );
 }
 
 function normalizeElicitationResponse(
   payload: unknown,
 ): ChatElicitationResponse | undefined {
-  if (!payload || typeof payload !== "object") return undefined;
-  const response = payload as Partial<ChatElicitationResponse>;
-  if (response.type === undefined) return undefined;
+  if (!is.plainObject(payload)) {
+    return undefined;
+  }
+  const response = payload as {
+    answers?: unknown;
+    success?: unknown;
+    type?: unknown;
+    value?: unknown;
+  };
+  if (!is.string(response.type)) return undefined;
 
   switch (response.type) {
     case "allow":
@@ -1933,22 +1954,21 @@ function normalizeElicitationResponse(
         ? {
             answers: response.answers
               .filter(
-                (answer) =>
-                  answer &&
-                  typeof answer === "object" &&
-                  typeof answer.id === "string" &&
-                  typeof answer.value === "string",
+                (answer): answer is { id: string; value: string } =>
+                  is.plainObject<{ id?: unknown; value?: unknown }>(answer) &&
+                  is.string(answer.id) &&
+                  is.string(answer.value),
               )
               .map((answer) => ({ id: answer.id, value: answer.value })),
             type: "answers",
           }
         : undefined;
     case "dynamicToolResult":
-      return typeof response.success === "boolean"
+      return is.boolean(response.success)
         ? { success: response.success, type: "dynamicToolResult" }
         : undefined;
     case "raw":
-      return typeof response.value === "string"
+      return is.string(response.value)
         ? { type: "raw", value: response.value }
         : undefined;
     default:
@@ -2013,7 +2033,9 @@ function appendMessageToEngineMessage(
 function historyMessageToEngineMessage(
   message: ChatHistoryMessage,
 ): EngineMessage {
-  const createdAt = message.createdAt ? new Date(message.createdAt) : undefined;
+  const createdAt = is.nonEmptyString(message.createdAt)
+    ? new Date(message.createdAt)
+    : undefined;
   const normalizedCreatedAt =
     createdAt && Number.isFinite(createdAt.getTime()) ? createdAt : new Date();
   const content = message.content.map(cloneChatHistoryPart);
@@ -2190,7 +2212,7 @@ function historyPartToEngineMessagePart(
       filename: part.filename ?? undefined,
       ...(part.mention ? { mention: part.mention } : {}),
       mimeType: part.mimeType,
-      ...(part.path ? { path: part.path } : {}),
+      ...(is.nonEmptyString(part.path) ? { path: part.path } : {}),
       type: "file",
     } as ThreadMessage["content"][number];
   }
@@ -2264,7 +2286,7 @@ function historyFilePartToAttachment(
         filename: part.filename,
         ...(part.mention ? { mention: true } : {}),
         mimeType: part.mimeType,
-        ...(part.path ? { path: part.path } : {}),
+        ...(is.nonEmptyString(part.path) ? { path: part.path } : {}),
         type: "file",
       },
     ],
@@ -2375,7 +2397,7 @@ function attachmentInputFromMessagePart(
 ): ChatAttachmentInput | undefined {
   if (part.type === "file" && messagePartMention(part)) {
     const path = messagePartPath(part);
-    if (!path) return undefined;
+    if (!is.nonEmptyString(path)) return undefined;
     return {
       mimeType: part.mimeType,
       name: part.filename ?? fallbackName ?? null,
@@ -2429,7 +2451,7 @@ function messagePartPath(part: ThreadMessage["content"][number]) {
       path?: unknown;
     }
   ).path;
-  return typeof path === "string" && path ? path : null;
+  return is.nonEmptyString(path) ? path : null;
 }
 
 function messagePartMention(part: ThreadMessage["content"][number]) {
@@ -2446,7 +2468,7 @@ function attachmentInputToHistoryPart(
   input: ChatAttachmentInput,
 ): ChatHistoryMessagePart {
   if (input.type === "fileMention") {
-    if (!input.mimeType) {
+    if (!is.nonEmptyString(input.mimeType)) {
       throw new Error("File mention attachment is missing mimeType.");
     }
     return {

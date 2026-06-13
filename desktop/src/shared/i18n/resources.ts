@@ -1,4 +1,5 @@
 import type { LocaleResource } from "./locales/schema";
+import is from "@sindresorhus/is";
 import { de } from "./locales/de";
 import { en } from "./locales/en";
 import { es } from "./locales/es";
@@ -35,7 +36,7 @@ export const resources = {
 export function normalizeSupportedLanguage(
   language: string | null | undefined,
 ): SupportedLanguage {
-  if (!language) return "en";
+  if (!is.nonEmptyString(language)) return "en";
   const normalized = language.toLowerCase();
 
   if (

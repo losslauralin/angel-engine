@@ -6,7 +6,7 @@ import type {
 } from "@angel-engine/js-client";
 import { AngelClient } from "@angel-engine/js-client";
 import { MockAgentAdapter } from "@angel-engine/js-client/mock";
-import { StrictMode, useEffect, useMemo, useState } from "react";
+import { StrictMode, useEffect, useMemo, useReducer } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
 
@@ -20,15 +20,74 @@ void client.projects.create({
   path: "/mock/playground",
 });
 
+interface PlaygroundState {
+  activeChatId?: string;
+  chats: Chat[];
+  events: ChatStreamEvent[];
+  isRunning: boolean;
+  messages: ChatHistoryMessage[];
+  prompt: string;
+}
+
+type PlaygroundAction =
+  | { event: ChatStreamEvent; type: "append-event" }
+  | {
+      activeChatId?: string;
+      chats: Chat[];
+      messages: ChatHistoryMessage[];
+      type: "refresh";
+    }
+  | { type: "reset-local" }
+  | { chatId?: string; type: "set-active-chat" }
+  | { events: ChatStreamEvent[]; type: "set-events" }
+  | { prompt: string; type: "set-prompt" }
+  | { running: boolean; type: "set-running" };
+
+const initialPlaygroundState: PlaygroundState = {
+  chats: [],
+  events: [],
+  isRunning: false,
+  messages: [],
+  prompt: "Show me how the JS client streams a mock agent run.",
+};
+
+function playgroundReducer(
+  state: PlaygroundState,
+  action: PlaygroundAction,
+): PlaygroundState {
+  switch (action.type) {
+    case "append-event":
+      return { ...state, events: [...state.events, action.event] };
+    case "refresh":
+      return {
+        ...state,
+        activeChatId: action.activeChatId,
+        chats: action.chats,
+        messages: action.messages,
+      };
+    case "reset-local":
+      return {
+        ...state,
+        activeChatId: undefined,
+        events: [],
+      };
+    case "set-active-chat":
+      return { ...state, activeChatId: action.chatId };
+    case "set-events":
+      return { ...state, events: action.events };
+    case "set-prompt":
+      return { ...state, prompt: action.prompt };
+    case "set-running":
+      return { ...state, isRunning: action.running };
+  }
+}
+
 function App() {
-  const [chats, setChats] = useState<Chat[]>([]);
-  const [activeChatId, setActiveChatId] = useState<string | undefined>();
-  const [messages, setMessages] = useState<ChatHistoryMessage[]>([]);
-  const [events, setEvents] = useState<ChatStreamEvent[]>([]);
-  const [prompt, setPrompt] = useState(
-    "Show me how the JS client streams a mock agent run.",
+  const [state, dispatch] = useReducer(
+    playgroundReducer,
+    initialPlaygroundState,
   );
-  const [isRunning, setIsRunning] = useState(false);
+  const { activeChatId, chats, events, isRunning, messages, prompt } = state;
 
   useEffect(() => {
     return client.subscribe(() => {
@@ -38,23 +97,26 @@ function App() {
 
   async function refresh(chatId?: string | null) {
     const nextChats = await client.chats.list();
-    setChats(nextChats);
     const selectedChatId =
       chatId === null
         ? undefined
         : (chatId ?? activeChatId ?? nextChats[0]?.id);
-    setActiveChatId(selectedChatId);
-    setMessages(
-      selectedChatId ? (await client.chats.load(selectedChatId)).messages : [],
-    );
+    dispatch({
+      activeChatId: selectedChatId,
+      chats: nextChats,
+      messages: selectedChatId
+        ? (await client.chats.load(selectedChatId)).messages
+        : [],
+      type: "refresh",
+    });
   }
 
   async function sendPrompt() {
     const text = prompt.trim();
     if (!text || isRunning) return;
 
-    setIsRunning(true);
-    setEvents([]);
+    dispatch({ running: true, type: "set-running" });
+    dispatch({ events: [], type: "set-events" });
     try {
       const result = await client.chats.send(
         {
@@ -64,14 +126,16 @@ function App() {
           text,
         },
         (event: ChatStreamEvent) => {
-          setEvents((current) => [...current, event]);
-          if (event.type === "chat") setActiveChatId(event.chat.id);
+          dispatch({ event, type: "append-event" });
+          if (event.type === "chat") {
+            dispatch({ chatId: event.chat.id, type: "set-active-chat" });
+          }
         },
       );
-      setActiveChatId(result.chatId);
+      dispatch({ chatId: result.chatId, type: "set-active-chat" });
       await refresh(result.chatId);
     } finally {
-      setIsRunning(false);
+      dispatch({ running: false, type: "set-running" });
     }
   }
 
@@ -90,8 +154,7 @@ function App() {
         <button
           onClick={() => {
             void client.chats.deleteAll().then(() => {
-              setActiveChatId(undefined);
-              setEvents([]);
+              dispatch({ type: "reset-local" });
               void refresh(null);
             });
           }}
@@ -113,7 +176,7 @@ function App() {
                   className={chat.id === activeChatId ? "selected" : ""}
                   key={chat.id}
                   onClick={() => {
-                    setActiveChatId(chat.id);
+                    dispatch({ chatId: chat.id, type: "set-active-chat" });
                     void refresh(chat.id);
                   }}
                   type="button"
@@ -152,7 +215,9 @@ function App() {
 
           <div className="composer">
             <textarea
-              onChange={(event) => setPrompt(event.target.value)}
+              onChange={(event) =>
+                dispatch({ prompt: event.target.value, type: "set-prompt" })
+              }
               value={prompt}
             />
             <button
@@ -168,8 +233,8 @@ function App() {
         <aside className="events">
           <h2>Stream Events</h2>
           <div className="event-list">
-            {events.map((event, index) => (
-              <pre key={`${event.type}-${index}`}>
+            {events.map((event) => (
+              <pre key={streamEventKey(event)}>
                 {JSON.stringify(event, null, 2)}
               </pre>
             ))}
@@ -180,29 +245,46 @@ function App() {
   );
 }
 
-function renderPart(part: ChatHistoryMessagePart, index: number) {
+function renderPart(part: ChatHistoryMessagePart) {
+  const key = chatPartKey(part);
   switch (part.type) {
     case "reasoning":
       return (
-        <p className="reasoning" key={index}>
+        <p className="reasoning" key={key}>
           {part.text}
         </p>
       );
     case "text":
-      return <p key={index}>{part.text}</p>;
+      return <p key={key}>{part.text}</p>;
     case "data":
       return (
-        <pre className="data" key={index}>
+        <pre className="data" key={key}>
           {JSON.stringify(part.data, null, 2)}
         </pre>
       );
     case "tool-call":
       return (
-        <pre className="tool" key={index}>
+        <pre className="tool" key={key}>
           {part.toolName}: {String(part.result ?? part.argsText)}
         </pre>
       );
   }
+}
+
+function chatPartKey(part: ChatHistoryMessagePart) {
+  switch (part.type) {
+    case "data":
+      return `data:${JSON.stringify(part.data)}`;
+    case "reasoning":
+    case "text":
+      return `${part.type}:${part.text}`;
+    case "tool-call":
+      return `tool:${part.toolName}:${part.argsText}:${JSON.stringify(part.result)}`;
+  }
+}
+
+function streamEventKey(event: ChatStreamEvent) {
+  return `${event.type}:${JSON.stringify(event)}`;
 }
 
 createRoot(document.getElementById("root")!).render(

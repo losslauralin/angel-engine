@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import is from "@sindresorhus/is";
 import { desc, eq } from "drizzle-orm";
 import { getDatabase } from "../../db/client";
 import { chats } from "../../db/schema";
@@ -114,7 +115,7 @@ export function setChatRemoteThreadId(
 
 export function setChatRuntime(id: string, runtime: string): Chat {
   const chat = requireChat(id);
-  if (chat.remoteThreadId) {
+  if (is.nonEmptyString(chat.remoteThreadId)) {
     throw new Error(
       "Chat runtime cannot be changed after the chat has started.",
     );
@@ -145,7 +146,7 @@ export function renameChat(id: string, title: string): Chat {
 
 export function requireChat(id: string): Chat {
   const chat = getChat(id);
-  if (!chat) {
+  if (is.falsy(chat)) {
     throw new Error("Chat not found.");
   }
   return chat;
@@ -175,7 +176,7 @@ function updateChat(
     .returning()
     .get();
 
-  if (!chat) {
+  if (is.falsy(chat)) {
     throw new Error("Chat not found.");
   }
 
@@ -183,7 +184,7 @@ function updateChat(
 }
 
 function requireChatId(id: string) {
-  if (!id) {
+  if (!is.nonEmptyString(id)) {
     throw new Error("Chat id is required.");
   }
   return id;
@@ -198,29 +199,33 @@ function uniqueChatIds(ids: string[]) {
 }
 
 function normalizeRuntime(runtime: string | undefined) {
-  return runtime || process.env.ANGEL_ENGINE_RUNTIME || "codex";
+  return is.nonEmptyString(runtime)
+    ? runtime
+    : is.nonEmptyString(process.env.ANGEL_ENGINE_RUNTIME)
+      ? process.env.ANGEL_ENGINE_RUNTIME
+      : "codex";
 }
 
 function normalizeTitle(title: string | undefined) {
-  return title || DEFAULT_CHAT_TITLE;
+  return is.nonEmptyString(title) ? title : DEFAULT_CHAT_TITLE;
 }
 
 function normalizeManualTitle(title: string) {
   const normalizedTitle = title.replace(/\s+/g, " ").trim();
-  if (!normalizedTitle) {
+  if (!is.nonEmptyString(normalizedTitle)) {
     throw new Error("Chat title is required.");
   }
   return normalizedTitle;
 }
 
 function normalizeOptionalString(value: string | null | undefined) {
-  if (typeof value !== "string" || !value) return null;
+  if (!is.nonEmptyString(value)) return null;
   return value;
 }
 
 function normalizeOptionalDirectory(value: string | null | undefined) {
   const dirPath = normalizeOptionalString(value);
-  if (!dirPath) return null;
+  if (!is.nonEmptyString(dirPath)) return null;
 
   const resolvedPath = path.resolve(dirPath);
   if (!fs.existsSync(resolvedPath)) {

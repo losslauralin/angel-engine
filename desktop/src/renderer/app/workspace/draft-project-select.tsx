@@ -1,10 +1,12 @@
 import type { ChatCreationLocation } from "@shared/chat";
 import type { Project } from "@shared/projects";
+import type { ChangeEvent } from "react";
 
 import {
   RiFolderLine as Folder,
   RiGitBranchLine as GitBranch,
 } from "@remixicon/react";
+import is from "@sindresorhus/is";
 import { useTranslation } from "react-i18next";
 import { getProjectDisplayName } from "@/app/workspace/workspace-display";
 import {
@@ -34,6 +36,22 @@ export function DraftProjectSelect({
 }) {
   const { t } = useTranslation();
   const value = selectedProjectId ?? String(NO_PROJECT_SELECT_VALUE);
+  const handleProjectChange = async (event: ChangeEvent<HTMLSelectElement>) => {
+    const nextValue = event.currentTarget.value;
+    const selectedSymbol = PROJECT_SELECT_SYMBOLS.get(nextValue);
+
+    if (selectedSymbol === NEW_PROJECT_SELECT_VALUE) {
+      const project = await onCreateProject();
+      if (project) {
+        onProjectChange(project.id);
+      }
+      return;
+    }
+
+    onProjectChange(
+      selectedSymbol === NO_PROJECT_SELECT_VALUE ? null : nextValue,
+    );
+  };
 
   return (
     <div className="relative w-fit max-w-[18rem]">
@@ -46,23 +64,7 @@ export function DraftProjectSelect({
       <NativeSelect
         aria-label={t("workspace.projectSelect")}
         className="max-w-[18rem]"
-        onChange={(event) => {
-          const nextValue = event.currentTarget.value;
-          const selectedSymbol = PROJECT_SELECT_SYMBOLS.get(nextValue);
-
-          if (selectedSymbol === NEW_PROJECT_SELECT_VALUE) {
-            void (async () => {
-              const project = await onCreateProject();
-              if (project) {
-                onProjectChange(project.id);
-              }
-            })();
-            return;
-          }
-          onProjectChange(
-            selectedSymbol === NO_PROJECT_SELECT_VALUE ? null : nextValue,
-          );
-        }}
+        onChange={(event) => void handleProjectChange(event)}
         selectClassName={`${projectControlClassName} hover:bg-background/92 focus-visible:!border-foreground/12 focus-visible:!ring-0 dark:hover:bg-card/90 dark:focus-visible:!border-white/14`}
         size="sm"
         title={t("workspace.projectSelect")}
@@ -102,7 +104,7 @@ export function DraftCreationLocationSelect({
   const { t } = useTranslation();
 
   return (
-    <div className="relative w-fit max-w-[12rem]">
+    <div className="relative w-fit max-w-48">
       <GitBranch
         className="
           pointer-events-none absolute top-1/2 left-2.5 z-10 size-3.5
@@ -111,7 +113,7 @@ export function DraftCreationLocationSelect({
       />
       <NativeSelect
         aria-label={t("workspace.creationLocationSelect")}
-        className="max-w-[12rem]"
+        className="max-w-48"
         onChange={(event) =>
           onValueChange(event.currentTarget.value as ChatCreationLocation)
         }
@@ -152,12 +154,15 @@ export function ReadonlyProjectLabel({
       />
       <span
         aria-label={t("workspace.projectSelect")}
-        className={`${projectControlClassName} inline-flex min-w-0 items-center pr-3 text-muted-foreground`}
+        className={`
+          ${projectControlClassName}
+          inline-flex min-w-0 items-center pr-3 text-muted-foreground
+        `}
         title={projectPath ?? projectName}
       >
-        <span className="min-w-0 select-none truncate">{projectName}</span>
-        {labelSuffix ? (
-          <span className="shrink-0 select-none text-muted-foreground/70">
+        <span className="min-w-0 truncate select-none">{projectName}</span>
+        {is.nonEmptyString(labelSuffix) ? (
+          <span className="shrink-0 text-muted-foreground/70 select-none">
             &nbsp;· {labelSuffix}
           </span>
         ) : null}

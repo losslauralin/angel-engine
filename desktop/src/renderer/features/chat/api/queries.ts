@@ -1,7 +1,6 @@
 import type {
   Chat,
   ChatCreationLocation,
-  ChatCreateInput,
   ChatLoadResult,
   ChatPrewarmResult,
   ChatRuntimeConfig,
@@ -57,12 +56,6 @@ interface RenameChatMutationParams {
 interface SetChatRuntimeMutationParams {
   api: ApiClient;
   onSuccess?: (data: Chat) => Promise<void> | void;
-  queryClient: QueryClient;
-}
-
-interface CreateChatMutationParams {
-  api: ApiClient;
-  onSuccess?: (data: Chat, variables: ChatCreateInput) => Promise<void> | void;
   queryClient: QueryClient;
 }
 
@@ -141,26 +134,6 @@ export function archivedChatListQueryOptions({
   });
 }
 
-export function chatLoadQueryOptions({
-  api,
-  chatId,
-  enabled = true,
-  staleTime = 60_000,
-}: ChatLoadQueryParams) {
-  return queryOptions({
-    enabled: enabled && Boolean(chatId),
-    queryFn: async (): Promise<ChatLoadResult> => {
-      if (!chatId) {
-        throw new Error("No chat selected");
-      }
-      return api.chats.load(chatId);
-    },
-    queryKey: queryKeys.chats.detail(chatId ?? null),
-    retry: false,
-    staleTime,
-  });
-}
-
 export function chatLoadSuspenseQueryOptions({
   api,
   chatId,
@@ -221,29 +194,6 @@ export function chatPrewarmQueryOptions({
     ),
     retry: false,
     staleTime,
-  });
-}
-
-export function createChatMutationOptions({
-  api,
-  onSuccess,
-  queryClient,
-}: CreateChatMutationParams) {
-  return mutationOptions({
-    mutationFn: async (input: ChatCreateInput) => api.chats.create(input),
-    onSuccess: async (data, variables) => {
-      queryClient.setQueryData<Chat[]>(queryKeys.chats.list(), (current = []) =>
-        upsertChatInList(current, data),
-      );
-      queryClient.setQueryData<ChatLoadResult | undefined>(
-        queryKeys.chats.detail(data.id),
-        (current) =>
-          current
-            ? { ...current, chat: data }
-            : { chat: data, messages: EMPTY_MESSAGES },
-      );
-      await onSuccess?.(data, variables);
-    },
   });
 }
 
@@ -388,7 +338,7 @@ export async function invalidateChatQueries(queryClient: QueryClient) {
   });
 }
 
-export async function refetchArchivedChatQueries(queryClient: QueryClient) {
+async function refetchArchivedChatQueries(queryClient: QueryClient) {
   await queryClient.refetchQueries({
     queryKey: queryKeys.chats.archived(),
     type: "active",

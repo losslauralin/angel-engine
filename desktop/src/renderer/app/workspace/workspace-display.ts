@@ -1,4 +1,5 @@
 import type { Chat } from "@shared/chat";
+import is from "@sindresorhus/is";
 
 export function getErrorMessage(error: unknown) {
   if (error instanceof Error) {
@@ -20,7 +21,7 @@ export function getWorkspaceTitle({
 }) {
   if (settingsActive) return t("workspace.settings");
   if (selectedChat) return displayChatTitle(selectedChat.title, t);
-  if (selectedProjectName) {
+  if (is.nonEmptyString(selectedProjectName)) {
     return t("workspace.newChatInProject", {
       projectName: selectedProjectName,
     });
@@ -33,7 +34,7 @@ export function getProjectDisplayName(projectPath: string) {
   return parts[parts.length - 1] ?? projectPath;
 }
 
-export function displayChatTitle(
+function displayChatTitle(
   title: string,
   t: (key: string, options?: Record<string, unknown>) => string,
 ) {

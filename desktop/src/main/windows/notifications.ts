@@ -1,6 +1,7 @@
 import type { Chat, ChatElicitation } from "../../shared/chat";
 
 import type { DesktopOpenChatFromNotificationEvent } from "../../shared/desktop-window";
+import is from "@sindresorhus/is";
 import { app, BrowserWindow, ipcMain, Notification } from "electron";
 import {
   DESKTOP_ACTIVE_CHAT_SET_CHANNEL,
@@ -62,7 +63,7 @@ export function notifyChatNeedsInput(input: {
   elicitation: ChatElicitation;
   window?: BrowserWindow | null;
 }) {
-  const title = input.elicitation.title
+  const title = is.nonEmptyString(input.elicitation.title)
     ? translate("notifications.needsInput", {
         chatTitle: notificationChatTitle(input.chat),
       })
@@ -70,12 +71,13 @@ export function notifyChatNeedsInput(input: {
         chatTitle: notificationChatTitle(input.chat),
       });
   const body =
-    input.elicitation.body ||
-    input.elicitation.title ||
-    input.elicitation.questions
-      ?.map((question) => question.question)
-      .find(Boolean) ||
-    translate("notifications.agentWaiting");
+    [
+      input.elicitation.body,
+      input.elicitation.title,
+      input.elicitation.questions
+        ?.map((question) => question.question)
+        .find(is.nonEmptyString),
+    ].find(is.nonEmptyString) ?? translate("notifications.agentWaiting");
 
   showBackgroundChatNotification({
     body: notificationBody(body, translate("notifications.agentWaiting")),
@@ -164,13 +166,15 @@ function stateForWindow(window: BrowserWindow) {
 
 function notificationChatTitle(chat: Chat) {
   const title = chat.title.trim();
-  if (title) return title;
+  if (is.nonEmptyString(title)) return title;
   return "Angel Engine";
 }
 
 function notificationBody(text: string | null | undefined, fallback: string) {
   const normalizedText = text?.replace(/\s+/g, " ").trim();
-  const normalized = normalizedText || fallback;
+  const normalized = is.nonEmptyString(normalizedText)
+    ? normalizedText
+    : fallback;
   return normalized.length > 220
     ? `${normalized.slice(0, 217).trimEnd()}...`
     : normalized;

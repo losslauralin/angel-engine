@@ -5,6 +5,7 @@ import {
   ThreadPrimitive,
 } from "@assistant-ui/react";
 import { RiDoubleQuotesL as Quote } from "@remixicon/react";
+import is from "@sindresorhus/is";
 import { Trans, useTranslation } from "react-i18next";
 
 import { useWorkspaceUiStore } from "@/app/workspace/workspace-ui-store";
@@ -30,9 +31,7 @@ export function AssistantThread({
 
   return (
     <ThreadPrimitive.Root
-      className="
-      flex h-full min-h-0 flex-col bg-background/96
-    "
+      className="flex h-full min-h-0 flex-col bg-background/96"
       data-workspace-mode={workspaceMode}
     >
       <ThreadPrimitive.Viewport
@@ -80,8 +79,8 @@ export function AssistantThread({
       <div
         aria-hidden="true"
         className="
-          pointer-events-none relative z-10 -mt-6 h-6 shrink-0
-          bg-gradient-to-b from-background/0 via-background/78 to-background
+          pointer-events-none relative z-10 -mt-6 h-6 shrink-0 bg-linear-to-b
+          from-background/0 via-background/78 to-background
         "
       />
       <div
@@ -106,7 +105,10 @@ function EmptyThread({ projectName }: { projectName?: string }) {
 
   return (
     <div
-      className={`${workspaceContentColumnClass} flex flex-1 items-center justify-center py-8`}
+      className={`
+        ${workspaceContentColumnClass}
+        flex flex-1 items-center justify-center py-8
+      `}
       data-workspace-mode="chat"
     >
       <div className="w-full max-w-136">
@@ -116,7 +118,7 @@ function EmptyThread({ projectName }: { projectName?: string }) {
             text-2xl/tight font-semibold text-pretty text-foreground
           "
           >
-            {projectName ? (
+            {is.nonEmptyString(projectName) ? (
               <Trans
                 components={{ project: <SketchUnderline /> }}
                 i18nKey="thread.empty.titleWithProject"

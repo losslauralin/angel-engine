@@ -1,5 +1,5 @@
 import type { ReactElement, ReactNode } from "react";
-import { createContext, useContext, useMemo, useState } from "react";
+import { createContext, use, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { SidebarTrigger } from "@/components/ui/sidebar";
@@ -28,9 +28,9 @@ export function WorkspaceSidebarControlPortalProvider({
   );
 
   return (
-    <WorkspaceSidebarControlPortalContext.Provider value={value}>
+    <WorkspaceSidebarControlPortalContext value={value}>
       {children}
-    </WorkspaceSidebarControlPortalContext.Provider>
+    </WorkspaceSidebarControlPortalContext>
   );
 }
 
@@ -40,7 +40,7 @@ export function WorkspaceSidebarControlTarget(): ReactElement {
 
   return (
     <div
-      className="fixed z-50 flex size-[2rem] items-center"
+      className="fixed z-50 flex size-8 items-center"
       ref={setTarget}
       style={{ left: isMacOS ? 80 : 20, top: 8 }}
     />
@@ -57,8 +57,8 @@ export function WorkspaceSidebarControl(): ReactElement | null {
   return createPortal(
     <SidebarTrigger
       className="
-        size-[2rem]! text-muted-foreground
-        [&_svg]:size-[1rem]!
+        size-8! text-muted-foreground
+        [&_svg]:size-4!
       "
     />,
     target,
@@ -66,7 +66,7 @@ export function WorkspaceSidebarControl(): ReactElement | null {
 }
 
 function useWorkspaceSidebarControlPortal() {
-  const context = useContext(WorkspaceSidebarControlPortalContext);
+  const context = use(WorkspaceSidebarControlPortalContext);
   if (!context) {
     throw new Error(
       "Workspace sidebar control portal must be used inside WorkspaceSidebarControlPortalProvider.",

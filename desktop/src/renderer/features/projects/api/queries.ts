@@ -1,8 +1,9 @@
-import type { Project, ProjectGitStatusResult } from "@shared/projects";
 import type { ProjectFileSearchResult } from "@shared/chat";
+import type { Project, ProjectGitStatusResult } from "@shared/projects";
 
 import type { QueryClient } from "@tanstack/react-query";
 import type { ApiClient } from "@/platform/api-client";
+import is from "@sindresorhus/is";
 import { mutationOptions, queryOptions } from "@tanstack/react-query";
 import { invalidateChatQueries } from "@/features/chat/api/queries";
 import { queryKeys } from "@/platform/query-keys";
@@ -90,9 +91,9 @@ export function projectGitStatusQueryOptions({
   staleTime = 30_000,
 }: ProjectGitStatusQueryParams) {
   return queryOptions({
-    enabled: enabled && Boolean(projectId),
+    enabled: enabled && is.nonEmptyString(projectId),
     queryFn: async (): Promise<ProjectGitStatusResult> => {
-      if (!projectId) {
+      if (!is.nonEmptyString(projectId)) {
         throw new Error("No project selected");
       }
       return api.projects.gitStatus({ projectId });
@@ -135,7 +136,7 @@ export function projectContextMenuMutationOptions({
   });
 }
 
-export async function invalidateProjectQueries(queryClient: QueryClient) {
+async function invalidateProjectQueries(queryClient: QueryClient) {
   await queryClient.invalidateQueries({
     queryKey: queryKeys.projects.all(),
     refetchType: "none",

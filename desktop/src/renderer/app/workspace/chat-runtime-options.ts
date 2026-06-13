@@ -1,7 +1,7 @@
 import type { AgentValueOption } from "@shared/agents";
 import type { ChatRuntimeConfigOption } from "@shared/chat";
 
-export const NO_CONFIG_OVERRIDE_VALUE = "__angel_no_override__";
+const NO_CONFIG_OVERRIDE_VALUE = "__angel_no_override__";
 
 export function runtimeConfigOptionsToAgentOptions(
   options: ChatRuntimeConfigOption[] | undefined,

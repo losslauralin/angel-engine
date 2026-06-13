@@ -18,14 +18,16 @@ import type {
 import type { ChatRuntime } from "./runtime";
 import { tipc } from "@egoist/tipc/main";
 
+import is from "@sindresorhus/is";
 import { type as arkType } from "arktype";
 import { app, BrowserWindow, clipboard, Menu } from "electron";
 import { normalizeChatAttachmentsInput } from "../../../shared/chat";
 import { translate } from "../../platform/i18n";
+import { managedWorktreePath, removeManagedWorktree } from "../projects/git";
 import {
   archiveChat,
-  deleteArchivedChats,
   deleteAllChats,
+  deleteArchivedChats,
   deleteChat,
   getChat,
   listArchivedChats,
@@ -45,7 +47,6 @@ import {
   chatSetPermissionModeInput,
   chatSetRuntimeInput,
 } from "./schemas";
-import { managedWorktreePath, removeManagedWorktree } from "../projects/git";
 
 const t = tipc.create();
 
@@ -320,7 +321,7 @@ async function removeManagedWorktreesForChats(targetChats: Chat[]) {
 
   for (const worktreePath of managedWorktreesForChats(targetChats)) {
     const removedPath = await removeManagedWorktree(worktreePath);
-    if (removedPath) {
+    if (is.nonEmptyString(removedPath)) {
       removedWorktrees.push(removedPath);
     }
   }

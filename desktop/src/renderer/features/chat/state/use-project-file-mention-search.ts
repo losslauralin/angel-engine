@@ -1,6 +1,6 @@
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useQuery } from "@tanstack/react-query";
 import { getErrorMessage } from "@/app/workspace/workspace-display";
 import { useToast } from "@/components/ui/toast";
 import { projectFileSearchQueryOptions } from "@/features/projects/api/queries";
@@ -82,7 +82,6 @@ function useDebouncedSearchQuery(query: string | null, delayMs: number) {
 
   useEffect(() => {
     if (query === null) {
-      setDebouncedQuery(null);
       return;
     }
 
@@ -95,5 +94,5 @@ function useDebouncedSearchQuery(query: string | null, delayMs: number) {
     };
   }, [delayMs, query]);
 
-  return debouncedQuery;
+  return query === null ? null : debouncedQuery;
 }

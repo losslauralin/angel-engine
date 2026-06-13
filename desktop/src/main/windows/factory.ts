@@ -1,6 +1,7 @@
 import type { BrowserWindowConstructorOptions } from "electron";
 
 import path from "node:path";
+import is from "@sindresorhus/is";
 import { BrowserWindow, shell } from "electron";
 
 import {
@@ -43,11 +44,11 @@ export function createDesktopWindow({
   configureDesktopWindowNotifications(window);
 
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
-    const url = hash
+    const url = is.nonEmptyString(hash)
       ? `${MAIN_WINDOW_VITE_DEV_SERVER_URL}#${hash.replace(/^#/, "")}`
       : MAIN_WINDOW_VITE_DEV_SERVER_URL;
     void window.loadURL(url);
-  } else if (hash) {
+  } else if (is.nonEmptyString(hash)) {
     void window.loadFile(rendererFilePath, { hash });
   } else {
     void window.loadFile(rendererFilePath);

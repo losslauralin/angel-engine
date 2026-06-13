@@ -6,6 +6,7 @@ import type {
 import fs from "node:fs/promises";
 
 import path from "node:path";
+import is from "@sindresorhus/is";
 import { lookup } from "mime-types";
 
 const DEFAULT_LIMIT = 20;
@@ -40,7 +41,7 @@ export async function searchProjectFiles(
 
   while (dirs.length > 0 && visited < MAX_VISITED) {
     const dir = dirs.shift();
-    if (!dir) break;
+    if (!is.nonEmptyString(dir)) break;
 
     let entries: Dirent[];
     try {
@@ -68,9 +69,10 @@ export async function searchProjectFiles(
 
       const score = scorePathMatch(query, relativePath, entry.name);
       if (score <= 0) continue;
+      const mimeType = lookup(absolutePath);
 
       matches.push({
-        mimeType: lookup(absolutePath) || null,
+        mimeType: is.string(mimeType) ? mimeType : null,
         name: entry.name,
         path: absolutePath,
         relativePath,

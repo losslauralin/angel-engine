@@ -11,6 +11,7 @@ import { AutoUnpackNativesPlugin } from "@electron-forge/plugin-auto-unpack-nati
 import { FusesPlugin } from "@electron-forge/plugin-fuses";
 import { VitePlugin } from "@electron-forge/plugin-vite";
 import { FuseV1Options, FuseVersion } from "@electron/fuses";
+import is from "@sindresorhus/is";
 
 const nativeRuntimeModules = [
   "better-sqlite3",
@@ -38,9 +39,9 @@ const appleApiKeyId = process.env.APPLE_API_KEY_ID;
 const appleApiIssuer = process.env.APPLE_API_ISSUER;
 const macNotarize =
   process.platform === "darwin" &&
-  appleApiKey &&
-  appleApiKeyId &&
-  appleApiIssuer
+  is.nonEmptyString(appleApiKey) &&
+  is.nonEmptyString(appleApiKeyId) &&
+  is.nonEmptyString(appleApiIssuer)
     ? {
         tool: "notarytool" as const,
         appleApiKey,
@@ -49,7 +50,9 @@ const macNotarize =
       }
     : undefined;
 const fallbackAdHocSign =
-  process.platform === "darwin" && !macSignIdentity && !macNotarize;
+  process.platform === "darwin" &&
+  !is.nonEmptyString(macSignIdentity) &&
+  macNotarize === undefined;
 
 function copyRuntimePath(buildPath: string, relativePath: string) {
   fs.cpSync(
@@ -67,7 +70,7 @@ function resolveRuntimeModulePackageJson(moduleName: string): string {
   const paths = [projectRoot, workspaceRoot];
   const parentModuleName = nativeRuntimeModuleParents.get(moduleName);
 
-  if (parentModuleName) {
+  if (is.nonEmptyString(parentModuleName)) {
     paths.unshift(
       path.dirname(resolveRuntimeModulePackageJson(parentModuleName)),
     );
@@ -137,8 +140,10 @@ const config: ForgeConfig = {
     osxSign:
       process.platform === "darwin"
         ? {
-            ...(macSignKeychain ? { keychain: macSignKeychain } : {}),
-            ...(macSignIdentity
+            ...(is.nonEmptyString(macSignKeychain)
+              ? { keychain: macSignKeychain }
+              : {}),
+            ...(is.nonEmptyString(macSignIdentity)
               ? { identity: macSignIdentity }
               : fallbackAdHocSign
                 ? { identity: "-" }

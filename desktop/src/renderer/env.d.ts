@@ -1,7 +1,4 @@
 import type { ChatStreamApi } from "@shared/chat";
-import type { TerminalApi } from "@shared/terminal";
-import type { WorkspaceBrowserApi } from "@shared/workspace-browser";
-import type * as React from "react";
 import type {
   DesktopConfirmDeleteArchivedChatsInput,
   DesktopConfirmDeleteCustomAgentInput,
@@ -12,6 +9,8 @@ import type {
   DesktopUpdateDownloadedEvent,
   DesktopWindowCommand,
 } from "@shared/desktop-window";
+import type { TerminalApi } from "@shared/terminal";
+import type { WorkspaceBrowserApi } from "@shared/workspace-browser";
 import type {
   WorkspaceToolContextSetInput,
   WorkspaceToolInstance,
@@ -24,6 +23,7 @@ import type {
   WorkspaceToolSurfaceSnapshotSetInput,
   WorkspaceToolSurfaceState,
 } from "@shared/workspace-tool-surface";
+import type * as React from "react";
 
 declare global {
   type DesktopPlatform =
