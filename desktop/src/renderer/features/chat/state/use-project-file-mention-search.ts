@@ -15,7 +15,7 @@ interface UseProjectFileMentionSearchParams {
 const FILE_MENTION_SEARCH_DEBOUNCE_MS = 120;
 
 export function mentionQueryFromDraft(text: string) {
-  const match = /(?:^|\s)@([^\s@]*)$/.exec(text);
+  const match = /(?:^|\s)@([^\s@]+)$/.exec(text);
   return match ? match[1] : null;
 }
 
