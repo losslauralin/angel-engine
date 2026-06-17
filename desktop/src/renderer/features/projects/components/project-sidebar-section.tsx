@@ -81,8 +81,8 @@ export function ProjectSidebarSection({
         <Button
           asChild
           className="
-            size-6
-            [&_svg:not([class*='size-'])]:size-3
+            size-7
+            [&_svg:not([class*='size-'])]:size-4
           "
           size="icon-xs"
           title={t("sidebar.addProject")}
@@ -156,6 +156,7 @@ export function ProjectSidebarSection({
                     aria-label={t("sidebar.newChatInProject", {
                       projectName: projectDisplayName,
                     })}
+                    className="[&_svg]:size-4"
                     onClick={(event) => {
                       event.preventDefault();
                       event.stopPropagation();

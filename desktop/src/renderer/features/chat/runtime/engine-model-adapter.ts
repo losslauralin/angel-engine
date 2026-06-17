@@ -13,7 +13,8 @@ import type {
 import type { EngineMessage } from "@/features/chat/state/chat-run-store";
 
 import { useExternalStoreRuntime } from "@assistant-ui/react";
-import { useCallback, useLayoutEffect, useMemo, useRef } from "react";
+import { useCallback, useLayoutEffect, useMemo } from "react";
+import { useSendChatMessage } from "@/features/chat/runtime/use-send-chat-message";
 import {
   useChatRunIsRunning,
   useChatRunMessages,
@@ -74,12 +75,12 @@ export function useEngineRuntime({
   const messages = useChatRunMessages(slotKey);
   const isRunning = useChatRunIsRunning(slotKey);
   const initializeSlot = useChatRunStore((state) => state.initializeSlot);
-  const startRun = useChatRunStore((state) => state.startRun);
   const cancelRunForSlot = useChatRunStore((state) => state.cancelRun);
   const resolveElicitation = useChatRunStore(
     (state) => state.resolveElicitation,
   );
-  const latestOptionsRef = useRef({
+
+  const sendChatMessage = useSendChatMessage(slotKey, {
     chatId,
     creationLocation,
     model,
@@ -87,27 +88,12 @@ export function useEngineRuntime({
     onChatCreated,
     onChatMessagesUpdated,
     onChatUpdated,
+    permissionMode,
     prewarmId,
     projectId,
-    permissionMode,
     reasoningEffort,
     runtime,
   });
-
-  latestOptionsRef.current = {
-    chatId,
-    creationLocation,
-    model,
-    mode,
-    onChatCreated,
-    onChatMessagesUpdated,
-    onChatUpdated,
-    prewarmId,
-    projectId,
-    permissionMode,
-    reasoningEffort,
-    runtime,
-  };
 
   useLayoutEffect(() => {
     initializeSlot({
@@ -139,31 +125,9 @@ export function useEngineRuntime({
 
   const runMessage = useCallback(
     async (message: AppendMessage) => {
-      const runConfig = message.runConfig?.custom;
-      const modeOverride =
-        typeof runConfig?.mode === "string" ? runConfig.mode : undefined;
-      await startRun({
-        callbacks: {
-          onChatMessagesUpdated: latestOptionsRef.current.onChatMessagesUpdated,
-          onChatCreated: latestOptionsRef.current.onChatCreated,
-          onChatUpdated: latestOptionsRef.current.onChatUpdated,
-        },
-        input: {
-          chatId: latestOptionsRef.current.chatId,
-          creationLocation: latestOptionsRef.current.creationLocation,
-          model: latestOptionsRef.current.model,
-          mode: modeOverride ?? latestOptionsRef.current.mode,
-          permissionMode: latestOptionsRef.current.permissionMode,
-          prewarmId: latestOptionsRef.current.prewarmId,
-          projectId: latestOptionsRef.current.projectId ?? undefined,
-          reasoningEffort: latestOptionsRef.current.reasoningEffort,
-          runtime: latestOptionsRef.current.runtime,
-        },
-        message,
-        slotKey,
-      });
+      await sendChatMessage.sendAppendMessage(message);
     },
-    [slotKey, startRun],
+    [sendChatMessage],
   );
 
   const store = useMemo<ExternalStoreAdapter<ThreadMessage>>(

@@ -17,8 +17,6 @@ function Checkbox({
           rounded-[4px] border border-input bg-background text-primary-foreground
           shadow-xs transition-[color,background-color,border-color,box-shadow]
           outline-none
-          focus-visible:border-ring focus-visible:ring-2
-          focus-visible:ring-ring/30
           disabled:cursor-not-allowed disabled:opacity-50
           data-[state=checked]:border-primary data-[state=checked]:bg-primary
         `,

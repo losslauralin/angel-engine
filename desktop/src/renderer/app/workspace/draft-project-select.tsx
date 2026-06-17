@@ -13,6 +13,7 @@ import {
   NativeSelect,
   NativeSelectOption,
 } from "@/components/ui/native-select";
+import { cn } from "@/platform/utils";
 
 const NO_PROJECT_SELECT_VALUE = Symbol("angel.projectSelect.noProject");
 const NEW_PROJECT_SELECT_VALUE = Symbol("angel.projectSelect.newProject");
@@ -20,19 +21,26 @@ const PROJECT_SELECT_SYMBOLS = new Map([
   [String(NO_PROJECT_SELECT_VALUE), NO_PROJECT_SELECT_VALUE],
   [String(NEW_PROJECT_SELECT_VALUE), NEW_PROJECT_SELECT_VALUE],
 ]);
-const projectControlClassName =
-  "h-8 max-w-[18rem] rounded-md border border-foreground/[0.08] bg-background/88 py-0 pr-8 pl-8 text-xs shadow-[0_8px_18px_-18px_rgba(0,0,0,0.55)] backdrop-blur-xl dark:border-white/[0.09] dark:bg-card/86 dark:shadow-[0_10px_20px_-20px_rgba(0,0,0,0.72)]";
+
+const projectControlVariants = {
+  default:
+    "h-8 max-w-[18rem] rounded-md border border-foreground/[0.08] bg-background/88 py-0 pr-8 pl-8 text-xs shadow-[0_8px_18px_-18px_rgba(0,0,0,0.55)] backdrop-blur-xl dark:border-white/[0.09] dark:bg-card/86 dark:shadow-[0_10px_20px_-20px_rgba(0,0,0,0.72)]",
+  ghost:
+    "h-8 max-w-[18rem] rounded-md border-transparent bg-transparent py-0 pr-6 pl-7 text-xs hover:bg-foreground/[0.04] dark:hover:bg-white/[0.04]",
+};
 
 export function DraftProjectSelect({
   onCreateProject,
   onProjectChange,
   projects,
   selectedProjectId,
+  variant = "default",
 }: {
   onCreateProject: () => Project | undefined | Promise<Project | undefined>;
   onProjectChange: (projectId: string | null) => void;
   projects: Project[];
   selectedProjectId?: string;
+  variant?: keyof typeof projectControlVariants;
 }) {
   const { t } = useTranslation();
   const value = selectedProjectId ?? String(NO_PROJECT_SELECT_VALUE);
@@ -65,7 +73,11 @@ export function DraftProjectSelect({
         aria-label={t("workspace.projectSelect")}
         className="max-w-[18rem]"
         onChange={(event) => void handleProjectChange(event)}
-        selectClassName={`${projectControlClassName} hover:bg-background/92 focus-visible:!border-foreground/12 focus-visible:!ring-0 dark:hover:bg-card/90 dark:focus-visible:!border-white/14`}
+        selectClassName={cn(
+          projectControlVariants[variant],
+          variant === "default" &&
+            "hover:bg-background/92 focus-visible:!border-foreground/12 focus-visible:!ring-0 dark:hover:bg-card/90 dark:focus-visible:!border-white/14",
+        )}
         size="sm"
         title={t("workspace.projectSelect")}
         value={value}
@@ -97,9 +109,11 @@ export function DraftProjectSelect({
 export function DraftCreationLocationSelect({
   onValueChange,
   value,
+  variant = "default",
 }: {
   onValueChange: (value: ChatCreationLocation) => void;
   value: ChatCreationLocation;
+  variant?: keyof typeof projectControlVariants;
 }) {
   const { t } = useTranslation();
 
@@ -117,7 +131,12 @@ export function DraftCreationLocationSelect({
         onChange={(event) =>
           onValueChange(event.currentTarget.value as ChatCreationLocation)
         }
-        selectClassName={`${projectControlClassName} max-w-[12rem] hover:bg-background/92 focus-visible:!border-foreground/12 focus-visible:!ring-0 dark:hover:bg-card/90 dark:focus-visible:!border-white/14`}
+        selectClassName={cn(
+          projectControlVariants[variant],
+          "max-w-[12rem]",
+          variant === "default" &&
+            "hover:bg-background/92 focus-visible:!border-foreground/12 focus-visible:!ring-0 dark:hover:bg-card/90 dark:focus-visible:!border-white/14",
+        )}
         size="sm"
         title={t("workspace.creationLocationSelect")}
         value={value}
@@ -155,7 +174,7 @@ export function ReadonlyProjectLabel({
       <span
         aria-label={t("workspace.projectSelect")}
         className={`
-          ${projectControlClassName}
+          ${projectControlVariants.default}
           inline-flex min-w-0 items-center pr-3 text-muted-foreground
         `}
         title={projectPath ?? projectName}

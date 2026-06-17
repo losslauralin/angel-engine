@@ -1,22 +1,30 @@
 import type {
+  Chat,
   ChatAvailableCommand,
+  ChatCreationLocation,
+  ChatHistoryMessage,
+  ChatRuntimeConfig,
   ProjectFileSearchResult,
 } from "@shared/chat";
+import type { Project } from "@shared/projects";
 import type { ChangeEvent, KeyboardEvent, ReactNode } from "react";
-import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
-
+import type {
+  PromptInputFile,
+  PromptInputMessage,
+} from "@/components/ai-elements/prompt-input";
 import type { ComposerMentionedFile } from "@/features/chat/components/composer/composer-attachments";
-import { ComposerPrimitive, useAui, useAuiState } from "@assistant-ui/react";
+
+import type { AttachmentInputError } from "@/features/chat/components/composer/composer-helpers";
 import {
   RiArrowUpLine as ArrowUp,
   RiStopCircleLine as CircleStop,
-  RiDoubleQuotesL as Quote,
-  RiEqualizer2Line as SlidersHorizontal,
-  RiCloseLine as X,
 } from "@remixicon/react";
 import is from "@sindresorhus/is";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
+import { DraftProjectSelect } from "@/app/workspace/draft-project-select";
+import { useWorkspaceUiStore } from "@/app/workspace/workspace-ui-store";
+import { SketchUnderline } from "@/features/chat/components/sketch-underline";
 import {
   PromptInput,
   PromptInputBody,
@@ -31,10 +39,6 @@ import { useToast } from "@/components/ui/toast";
 import { ChatAttachmentTile } from "@/features/chat/components/attachment-tile";
 import { ComposerAssistPanel } from "@/features/chat/components/composer/composer-assist-panel";
 import {
-  createAttachmentFromPromptFile,
-  createMentionAttachment,
-} from "@/features/chat/components/composer/composer-attachments";
-import {
   attachmentErrorMessage,
   attachmentErrorTitle,
   filterSlashCommands,
@@ -43,41 +47,113 @@ import {
 } from "@/features/chat/components/composer/composer-helpers";
 import {
   ComposerModelMenu,
-  ComposerOptionSelect,
   PromptAttachmentButton,
 } from "@/features/chat/components/composer/composer-menus";
 import { PlanModeToggleButton } from "@/features/chat/components/composer/composer-plan-mode";
-import { iconButtonClass } from "@/features/chat/components/thread-styles";
 import { useChatEnvironment } from "@/features/chat/runtime/chat-environment-context";
 import { useChatOptions } from "@/features/chat/runtime/chat-options-context";
+import { useSendChatMessage } from "@/features/chat/runtime/use-send-chat-message";
+import {
+  useChatRunIsRunning,
+  useChatRunStore,
+} from "@/features/chat/state/chat-run-store";
 import {
   mentionQueryFromDraft,
   useProjectFileMentionSearch,
 } from "@/features/chat/state/use-project-file-mention-search";
 import { cn } from "@/platform/utils";
 
-const composerInputGroupClassName =
-  "overflow-visible !rounded-lg !border !border-foreground/[0.08] !bg-background/86 backdrop-blur-xl transition-[border-color,background-color] has-[textarea]:!rounded-lg has-[>[data-align=block-end]]:!rounded-lg has-[>[data-align=block-start]]:!rounded-lg has-[[data-slot=input-group-control]:focus-visible]:!border-foreground/14 has-[[data-slot=input-group-control]:focus-visible]:!ring-0 focus-within:!border-foreground/14 focus-within:!bg-background/94 dark:!border-white/[0.09] dark:!bg-card/82 dark:focus-within:!border-white/14 dark:focus-within:!bg-card/90 [&_button:focus-visible]:!border-transparent [&_button:focus-visible]:!ring-0 [&_button]:shadow-none";
+const newChatInputGroupClassName = cn(
+  `
+    overflow-visible border-0 bg-transparent backdrop-blur-xl
+    [&_button]:shadow-none
+    [&_button:focus-visible]:border-transparent!
+    [&_button:focus-visible]:ring-0!
+  `,
+);
 
-export function AssistantComposer({
-  floatingAccessory,
-  onBeforeSubmit,
-}: {
-  floatingAccessory?: ReactNode;
+const newChatHeaderClassName = cn(
+  "flex-col items-stretch gap-2 px-3.5! pt-3.5! pb-2!",
+);
+
+interface NewChatComposerProps {
+  creationLocation?: ChatCreationLocation;
+  creationLocationAccessory?: ReactNode;
+  model?: string;
+  mode?: string;
   onBeforeSubmit?: () => boolean | Promise<boolean>;
-}) {
+  onChatCreated?: (chat: Chat) => void;
+  onChatMessagesUpdated?: (
+    chatId: string,
+    messages: ChatHistoryMessage[],
+    config?: ChatRuntimeConfig,
+  ) => void;
+  onChatUpdated?: (
+    chat: Chat,
+    messages?: ChatHistoryMessage[],
+    config?: ChatRuntimeConfig,
+  ) => void;
+  onCreateProject: () => Project | undefined | Promise<Project | undefined>;
+  onProjectChange: (projectId: string | null) => void;
+  permissionMode?: string;
+  prewarmId?: string;
+  projectId?: string;
+  projectName?: string;
+  projects: Project[];
+  reasoningEffort?: string;
+  runtime: string;
+  slotKey: string;
+}
+
+export function NewChatComposer({
+  creationLocation,
+  creationLocationAccessory,
+  model,
+  mode,
+  onBeforeSubmit,
+  onChatCreated,
+  onChatMessagesUpdated,
+  onChatUpdated,
+  onCreateProject,
+  onProjectChange,
+  permissionMode,
+  prewarmId,
+  projectId,
+  projectName,
+  projects,
+  reasoningEffort,
+  runtime,
+  slotKey,
+}: NewChatComposerProps) {
   const { t } = useTranslation();
-  const aui = useAui();
+  const chatOptions = useChatOptions();
   const environment = useChatEnvironment();
-  const canCancel = useAuiState((state) => state.composer.canCancel);
-  const isInputDisabled = useAuiState((state) => state.thread.isDisabled);
-  const isRunning = useAuiState((state) => state.thread.isRunning);
   const toast = useToast();
+  const isRunning = useChatRunIsRunning(slotKey);
+  const cancelRun = useChatRunStore((state) => state.cancelRun);
+  const workspaceMode = useWorkspaceUiStore((state) => state.workspaceMode);
+
+  const sendChatMessage = useSendChatMessage(slotKey, {
+    chatId: undefined,
+    creationLocation,
+    model,
+    mode,
+    onChatCreated,
+    onChatMessagesUpdated,
+    onChatUpdated,
+    permissionMode,
+    prewarmId,
+    projectId: projectId ?? null,
+    reasoningEffort,
+    runtime,
+  });
+
   const [draftText, setDraftText] = useState("");
   const [mentionedFiles, setMentionedFiles] = useState<ComposerMentionedFile[]>(
     [],
   );
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
   const projectToolsEnabled =
     environment.isProjectChat && environment.projectPath !== undefined;
   const mentionQuery = projectToolsEnabled
@@ -101,7 +177,6 @@ export function AssistantComposer({
   );
   const slashCommandOpen = slashQuery !== null;
   const slashCommandsLoading = environment.availableCommandsLoading;
-  const hasFloatingAccessory = !is.falsy(floatingAccessory);
 
   const handleSubmit = useCallback(
     async (message: PromptInputMessage) => {
@@ -116,36 +191,22 @@ export function AssistantComposer({
       if (onBeforeSubmit && !(await onBeforeSubmit())) {
         return;
       }
-      const composer = aui.composer();
 
-      composer.setText(text);
+      await sendChatMessage.sendPromptMessage({
+        attachments: message.files as PromptInputFile[],
+        mentionedFiles,
+        t,
+        text,
+      });
 
-      try {
-        await Promise.all([
-          ...message.files.map(async (file) =>
-            composer.addAttachment(createAttachmentFromPromptFile(file, t)),
-          ),
-          ...mentionedFiles.map(async (file) =>
-            composer.addAttachment(createMentionAttachment(file)),
-          ),
-        ]);
-
-        composer.send();
-        setDraftText("");
-        setMentionedFiles([]);
-      } catch (error) {
-        await composer.clearAttachments().catch(() => undefined);
-        throw error;
-      }
+      setDraftText("");
+      setMentionedFiles([]);
     },
-    [aui, mentionedFiles, onBeforeSubmit, t],
+    [mentionedFiles, onBeforeSubmit, sendChatMessage, t],
   );
 
   const handleAttachmentError = useCallback(
-    (error: {
-      code: "max_files" | "max_file_size" | "accept" | "file_read" | "submit";
-      message: string;
-    }) => {
+    (error: { code: AttachmentInputError["code"]; message: string }) => {
       toast({
         description: attachmentErrorMessage(error.code, t),
         title: attachmentErrorTitle(error.code, t),
@@ -195,9 +256,9 @@ export function AssistantComposer({
           event.preventDefault();
           return;
         }
-        if (!canCancel) return;
+        if (!isRunning) return;
         event.preventDefault();
-        aui.composer().cancel();
+        cancelRun(slotKey);
         return;
       }
 
@@ -232,8 +293,7 @@ export function AssistantComposer({
       }
     },
     [
-      aui,
-      canCancel,
+      cancelRun,
       fileMentionOpen,
       fileResults,
       fileSearchLoading,
@@ -243,66 +303,111 @@ export function AssistantComposer({
       slashCommandOpen,
       slashCommands,
       slashCommandsLoading,
+      slotKey,
     ],
   );
 
   return (
-    <PromptInput
-      inputGroupClassName={composerInputGroupClassName}
-      multiple
-      onError={handleAttachmentError}
-      onSubmit={handleSubmit}
+    <div
+      className="
+        flex h-full flex-col items-center justify-center overflow-y-auto p-4
+        sm:px-7
+      "
     >
-      {hasFloatingAccessory ? (
-        <div className="absolute top-0 left-3 z-30 -translate-y-1/2">
-          {floatingAccessory}
+      <div className="w-full max-w-3xl">
+        <div className="mb-6 text-center">
+          <h2 className="text-2xl/tight font-semibold text-pretty text-foreground">
+            {is.nonEmptyString(projectName) ? (
+              <Trans
+                components={{ project: <SketchUnderline /> }}
+                i18nKey="thread.empty.titleWithProject"
+                values={{ projectName }}
+              />
+            ) : (
+              t("thread.empty.title")
+            )}
+          </h2>
+          <p className="mx-auto mt-2 max-w-120 text-sm/6 text-muted-foreground">
+            {t("thread.empty.description")}
+          </p>
         </div>
-      ) : null}
-      {hasFloatingAccessory ? (
-        <div aria-hidden="true" className="order-first h-4 w-full shrink-0" />
-      ) : null}
 
-      <ComposerAssistPanel
-        fileMentionOpen={fileMentionOpen}
-        fileResults={fileResults}
-        fileSearchLoading={fileSearchLoading}
-        onSelectMentionedFile={selectMentionedFile}
-        onSelectSlashCommand={insertSlashCommand}
-        slashCommandCatalogSize={environment.availableCommands.length}
-        slashCommandsLoading={slashCommandsLoading}
-        slashCommandOpen={slashCommandOpen}
-        slashCommands={slashCommands}
-      />
-
-      <AssistantComposerHeader
-        mentionedFiles={mentionedFiles}
-        onRemoveMentionedFile={removeMentionedFile}
-      />
-
-      <PromptInputBody>
-        <PromptInputTextarea
+        <div
           className="
-            max-h-40 min-h-(--workspace-composer-min-height) px-3.5 py-3
-            [font-size:var(--workspace-composer-text-size)]
-            leading-(--workspace-composer-line-height)
-            placeholder:text-muted-foreground/62
+            overflow-hidden rounded-2xl border border-foreground/8 bg-background/86
+            dark:border-white/9 dark:bg-card/82
           "
-          disabled={isInputDisabled}
-          onChange={handleTextChange}
-          onKeyDown={handleTextKeyDown}
-          placeholder={t("composer.placeholder")}
-          ref={textareaRef}
-          rows={2}
-          value={draftText}
-        />
-      </PromptInputBody>
+        >
+          <PromptInput
+            inputGroupClassName={newChatInputGroupClassName}
+            multiple
+            onError={handleAttachmentError}
+            onSubmit={handleSubmit}
+          >
+            <ComposerAssistPanel
+              fileMentionOpen={fileMentionOpen}
+              fileResults={fileResults}
+              fileSearchLoading={fileSearchLoading}
+              onSelectMentionedFile={selectMentionedFile}
+              onSelectSlashCommand={insertSlashCommand}
+              slashCommandCatalogSize={environment.availableCommands.length}
+              slashCommands={slashCommands}
+              slashCommandsLoading={slashCommandsLoading}
+              slashCommandOpen={slashCommandOpen}
+            />
 
-      <AssistantComposerFooter draftText={draftText} />
-    </PromptInput>
+            <NewChatComposerHeader
+              mentionedFiles={mentionedFiles}
+              onRemoveMentionedFile={removeMentionedFile}
+            />
+
+            <PromptInputBody>
+              <PromptInputTextarea
+                className="
+                  min-h-24 resize-none px-4 py-3.5 text-[15px] leading-relaxed
+                  placeholder:text-muted-foreground/55
+                "
+                disabled={isRunning}
+                onChange={handleTextChange}
+                onKeyDown={handleTextKeyDown}
+                placeholder={t("composer.placeholder")}
+                ref={textareaRef}
+                rows={3}
+                value={draftText}
+              />
+            </PromptInputBody>
+
+            <NewChatComposerFooter
+              draftText={draftText}
+              isRunning={isRunning}
+              onCancel={() => cancelRun(slotKey)}
+            />
+          </PromptInput>
+
+          {workspaceMode === "work" && (
+            <div
+              className="
+                flex items-center justify-start gap-2 border-t border-foreground/8
+                bg-muted/30 px-3 py-2 dark:border-white/9 dark:bg-white/[0.03]
+              "
+            >
+              <DraftProjectSelect
+                onCreateProject={onCreateProject}
+                onProjectChange={onProjectChange}
+                projects={projects}
+                selectedProjectId={projectId}
+                variant="ghost"
+              />
+              {creationLocationAccessory}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
-function AssistantComposerHeader({
+function NewChatComposerHeader({
   mentionedFiles,
   onRemoveMentionedFile,
 }: {
@@ -311,38 +416,13 @@ function AssistantComposerHeader({
 }) {
   const { t } = useTranslation();
   const attachments = usePromptInputAttachments();
-  const hasQuote = useAuiState((state) => Boolean(state.composer.quote));
 
-  if (
-    !hasQuote &&
-    attachments.files.length === 0 &&
-    mentionedFiles.length === 0
-  ) {
+  if (attachments.files.length === 0 && mentionedFiles.length === 0) {
     return null;
   }
 
   return (
-    <PromptInputHeader
-      className={cn("flex-col items-stretch gap-2 px-3! pt-3! pb-2!")}
-    >
-      {hasQuote ? (
-        <ComposerPrimitive.Quote
-          className="
-            flex items-start gap-2 rounded-md border border-foreground/8
-            bg-muted/30 p-2 text-sm
-            dark:border-white/8
-          "
-        >
-          <Quote className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-          <ComposerPrimitive.QuoteText
-            className={cn("line-clamp-2 flex-1 text-muted-foreground")}
-          />
-          <ComposerPrimitive.QuoteDismiss className={iconButtonClass}>
-            <X className="size-3.5" />
-          </ComposerPrimitive.QuoteDismiss>
-        </ComposerPrimitive.Quote>
-      ) : null}
-
+    <PromptInputHeader className={newChatHeaderClassName}>
       {mentionedFiles.length > 0 ? (
         <div className="flex flex-wrap gap-2">
           {mentionedFiles.map((file) => (
@@ -390,49 +470,32 @@ function AssistantComposerHeader({
   );
 }
 
-function AssistantComposerFooter({ draftText }: { draftText: string }) {
+function NewChatComposerFooter({
+  draftText,
+  isRunning,
+  onCancel,
+}: {
+  draftText: string;
+  isRunning: boolean;
+  onCancel: () => void;
+}) {
   const { t } = useTranslation();
-  const aui = useAui();
-  const attachments = usePromptInputAttachments();
   const chatOptions = useChatOptions();
-  const isRunning = useAuiState((state) => state.thread.isRunning);
+  const attachments = usePromptInputAttachments();
   const isEmpty = draftText.length === 0 && attachments.files.length === 0;
-
-  const stopRun = useCallback(() => {
-    aui.composer().cancel();
-  }, [aui]);
 
   return (
     <PromptInputFooter
       className="
-        flex-wrap px-3! py-2!
+        flex-wrap gap-2 px-3.5! py-2.5! shadow-none border-t-0
       "
     >
       <PromptInputTools className="flex-wrap">
         <PromptAttachmentButton />
-        <ComposerModelMenu
-          disabled={isRunning}
-          hideProvider
-          options={chatOptions}
-        />
+        <ComposerModelMenu disabled={isRunning} options={chatOptions} />
       </PromptInputTools>
-      <div className="flex min-w-0 items-center gap-2">
+      <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
         <PlanModeToggleButton disabled={isRunning} options={chatOptions} />
-        <ComposerOptionSelect
-          className="hidden max-w-28"
-          disabled={
-            isRunning ||
-            !chatOptions.canSetMode ||
-            chatOptions.modeOptions.length < 2
-          }
-          icon={<SlidersHorizontal />}
-          label={t("composer.mode")}
-          onValueChange={(value) => {
-            void chatOptions.setMode(value);
-          }}
-          options={chatOptions.modeOptions}
-          value={chatOptions.mode}
-        />
         {isRunning ? (
           <Button
             className="
@@ -440,7 +503,7 @@ function AssistantComposerFooter({ draftText }: { draftText: string }) {
               focus-visible:ring-0!
               dark:bg-card/60
             "
-            onClick={stopRun}
+            onClick={onCancel}
             size="sm"
             type="button"
             variant="outline"

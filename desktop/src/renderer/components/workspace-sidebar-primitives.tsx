@@ -46,7 +46,7 @@ export function SidebarSectionHeader({
 }: SidebarSectionHeaderProps): ReactElement {
   return (
     <m.div
-      className="flex items-center justify-between gap-2 pr-2"
+      className="flex items-center justify-between gap-2 pr-1"
       layout
       transition={sidebarMotion}
     >

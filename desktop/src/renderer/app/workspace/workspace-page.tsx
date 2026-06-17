@@ -34,8 +34,8 @@ import {
 import { useTranslation } from "react-i18next";
 import { Redirect, useLocation } from "wouter";
 import { ChatRestoreLoading } from "@/app/workspace/chat-restore-loading";
-import { DraftChatThread } from "@/app/workspace/draft-chat-thread";
 import { DraftCreationLocationSelect } from "@/app/workspace/draft-project-select";
+import { NewChatThread } from "@/app/workspace/new-chat-thread";
 import { useDraftChatOptions } from "@/app/workspace/use-draft-chat-options";
 import { useDraftProjectContext } from "@/app/workspace/use-draft-project-context";
 import {
@@ -1259,7 +1259,7 @@ function WorkspacePageContent({
                     </ChatRestoreErrorBoundary>
                   )
                 ) : (
-                  <DraftChatThread
+                  <NewChatThread
                     chatOptions={chatOptions}
                     creationLocation={draftCreationLocation}
                     creationLocationAccessory={
@@ -1267,6 +1267,7 @@ function WorkspacePageContent({
                         <DraftCreationLocationSelect
                           onValueChange={setDraftCreationLocation}
                           value={draftCreationLocation}
+                          variant="ghost"
                         />
                       ) : undefined
                     }
@@ -1287,7 +1288,6 @@ function WorkspacePageContent({
                     }
                     projectId={draftProject.id}
                     projectName={selectedProjectName}
-                    projectPath={draftProject.path}
                     projects={projects}
                     reasoningEffort={reasoningEffortOverride}
                     runOrigin={{

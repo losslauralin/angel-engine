@@ -12,7 +12,6 @@ const buttonVariants = cva(
     whitespace-nowrap
     transition-[color,background-color,border-color,box-shadow,transform]
     outline-none select-none
-    focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30
     active:not-aria-[haspopup]:translate-y-px
     disabled:pointer-events-none disabled:opacity-50
     aria-invalid:border-destructive aria-invalid:ring-3
@@ -49,10 +48,8 @@ const buttonVariants = cva(
         destructive: `
           bg-destructive/10 text-destructive
           hover:bg-destructive/20
-          focus-visible:border-destructive/40 focus-visible:ring-destructive/20
           dark:bg-destructive/20
           dark:hover:bg-destructive/30
-          dark:focus-visible:ring-destructive/40
         `,
         link: `
           text-primary underline-offset-4

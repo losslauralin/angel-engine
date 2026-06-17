@@ -35,6 +35,7 @@
     "@assistant-ui/core": "0.1.17",
     "@assistant-ui/react": "^0.12.28",
     "@assistant-ui/react-streamdown": "^0.1.11",
+    "@chenglou/pretext": "^0.0.8",
     "@egoist/tipc": "^0.3.2",
     "@fontsource-variable/inter": "^5.2.8",
     "@fontsource-variable/playwrite-de-la": "^5.2.7",

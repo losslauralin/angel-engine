@@ -23,9 +23,6 @@ function InputGroup({ className, ...props }: React.ComponentProps<"div">) {
           in-data-[slot=combobox-content]:focus-within:ring-0
           has-data-[align=block-end]:rounded-lg
           has-data-[align=block-start]:rounded-lg
-          has-[[data-slot=input-group-control]:focus-visible]:border-ring
-          has-[[data-slot=input-group-control]:focus-visible]:ring-3
-          has-[[data-slot=input-group-control]:focus-visible]:ring-ring/30
           has-[[data-slot][aria-invalid=true]]:border-destructive
           has-[[data-slot][aria-invalid=true]]:ring-3
           has-[[data-slot][aria-invalid=true]]:ring-destructive/20

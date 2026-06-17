@@ -95,6 +95,9 @@ importers:
       "@assistant-ui/react-streamdown":
         specifier: ^0.1.11
         version: 0.1.11(@assistant-ui/react@0.12.28(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(use-sync-external-store@1.6.0(react@19.2.6)))(@streamdown/cjk@1.0.3(@types/mdast@4.0.4)(micromark-util-types@2.0.2)(micromark@4.0.2)(react@19.2.6)(unified@11.0.5))(@streamdown/code@1.1.1(react@19.2.6))(@streamdown/math@1.0.2(react@19.2.6))(@streamdown/mermaid@1.0.2(react@19.2.6))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      "@chenglou/pretext":
+        specifier: ^0.0.8
+        version: 0.0.8
       "@egoist/tipc":
         specifier: ^0.3.2
         version: 0.3.2(electron@41.5.0)(react@19.2.6)
@@ -994,6 +997,12 @@ packages:
     resolution:
       {
         integrity: sha512-jigsZK+sMF/cuiB7sERuo9V7N9jx+dhmHHnQyDSVdpZwVutaBu7WvNYqMDLSgFgfB30n452TP3vjDAvFC973mA==,
+      }
+
+  "@chenglou/pretext@0.0.8":
+    resolution:
+      {
+        integrity: sha512-yqm2GMxnPI7VHcHwe84P8ZF0JK/2d2DMKPqMN+s95jQhwDMYYXKVFVJUMEaVWckQStdsjdLav/0Vu+d9YbtGxA==,
       }
 
   "@chevrotain/types@11.1.2":
@@ -16782,6 +16791,8 @@ snapshots:
       "@babel/helper-validator-identifier": 7.28.5
 
   "@braintree/sanitize-url@7.1.2": {}
+
+  "@chenglou/pretext@0.0.8": {}
 
   "@chevrotain/types@11.1.2": {}
 

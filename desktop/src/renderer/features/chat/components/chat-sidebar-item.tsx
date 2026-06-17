@@ -99,6 +99,7 @@ export function ChatSidebarItem({
       {onArchiveChat ? (
         <WorkspaceSidebarMenuAction
           aria-label={t("sidebar.archiveChat")}
+          className="[&_svg]:size-4"
           onClick={(event) => {
             event.preventDefault();
             event.stopPropagation();
