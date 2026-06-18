@@ -287,7 +287,7 @@
 }
 
 @layer components {
-  html[data-platform="darwin"] [data-slot="sidebar-container"] {
+  [data-slot="sidebar-container"] {
     background-color: var(--macos-sidebar-background);
   }
 
