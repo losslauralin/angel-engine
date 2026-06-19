@@ -15,7 +15,7 @@ Electron CDP target 后按 snapshot/ref 工作流执行；不要直接打开 Vit
 
 - 用户能在 `New chat`、standalone chat、project chat 三种入口稳定选择并使用该
   agent。
-- Chat/Work mode、workspace tool sidebar/dialog/window、project Files/Git 面板不会
+- Chat/Work mode、workspace tool sidebar/window、project Files/Git 面板不会
   破坏当前 agent 的 route、cwd、running 状态或 open elicitation。
 - agent 的 model、reasoning effort、agent mode、permission mode、
   tool/permission/input 能力来自 engine/client snapshot，而不是 desktop 侧硬编码。
@@ -394,8 +394,8 @@ workspace tool host 切换。
 - [ ] 同时运行两个 Codex chat 时，输出、权限、取消互不串线。
 - [ ] cancel chat A 不影响 chat B。
 - [ ] chat B 切换 runtime config 不影响 chat A。
-- [ ] chat A 运行或等待 permission 时，打开/关闭 workspace tool sidebar、dialog 或
-      window 不改变 active chat id，不吞掉 permission/input 卡片。
+- [ ] chat A 运行或等待 permission 时，打开/关闭 workspace tool sidebar 或 window
+      不改变 active chat id，不吞掉 permission/input 卡片。
 - [ ] Browser/Terminal/Files/Git tabs 的打开、切换、关闭不会把后台 agent 输出投影到
       错误 chat。
 

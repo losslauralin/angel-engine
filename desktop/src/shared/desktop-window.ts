@@ -59,8 +59,6 @@ export const DESKTOP_WINDOW_CLOSE_CURRENT_CHANNEL =
   "desktop-window:close-current";
 export const DESKTOP_WORKSPACE_TOOL_CONTEXT_SET_CHANNEL =
   "desktop-window:workspace-tool-context:set";
-export const DESKTOP_WORKSPACE_TOOL_DIALOG_OPEN_CHANNEL =
-  "desktop-window:workspace-tool-dialog:open";
 export const DESKTOP_WORKSPACE_TOOL_SURFACE_CHANGED_CHANNEL =
   "desktop-window:workspace-tool-surface:changed";
 export const DESKTOP_WORKSPACE_TOOL_SURFACE_CONTEXT_SET_CHANNEL =

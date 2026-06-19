@@ -1,4 +1,4 @@
-export type WorkspaceToolHost = "dialog" | "sidebar" | "window";
+export type WorkspaceToolHost = "sidebar" | "window";
 
 export type WorkspaceToolInstance =
   | WorkspaceBrowserToolInstance

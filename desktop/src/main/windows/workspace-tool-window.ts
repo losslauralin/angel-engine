@@ -16,7 +16,6 @@ import { BrowserWindow, ipcMain, screen } from "electron";
 import {
   DESKTOP_WINDOW_CLOSE_CURRENT_CHANNEL,
   DESKTOP_WORKSPACE_TOOL_CONTEXT_SET_CHANNEL,
-  DESKTOP_WORKSPACE_TOOL_DIALOG_OPEN_CHANNEL,
   DESKTOP_WORKSPACE_TOOL_INSTANCE_CLOSE_CHANNEL,
   DESKTOP_WORKSPACE_TOOL_INSTANCE_REGISTER_CHANNEL,
   DESKTOP_WORKSPACE_TOOL_SURFACE_CHANGED_CHANNEL,
@@ -96,12 +95,6 @@ function registerLegacyWorkspaceToolIpc() {
   ipcMain.on(DESKTOP_WORKSPACE_TOOL_WINDOW_OPEN_CHANNEL, (event) => {
     setWorkspaceToolSurfaceHost(
       "window",
-      BrowserWindow.fromWebContents(event.sender) ?? undefined,
-    );
-  });
-  ipcMain.on(DESKTOP_WORKSPACE_TOOL_DIALOG_OPEN_CHANNEL, (event) => {
-    setWorkspaceToolSurfaceHost(
-      "dialog",
       BrowserWindow.fromWebContents(event.sender) ?? undefined,
     );
   });

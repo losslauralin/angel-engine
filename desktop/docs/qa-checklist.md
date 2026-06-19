@@ -197,7 +197,7 @@
 
 ## Workspace Tools
 
-覆盖：workspace tool sidebar/dialog/window host、tab state、Files、Git、Browser、Terminal、main/preload IPC。
+覆盖：workspace tool sidebar/window host、tab state、Files、Git、Browser、Terminal、main/preload IPC。
 
 1. 打开一个 project chat，让右侧 workspace tool 具备 project root。
 2. 打开右侧 sidebar tool surface。
@@ -206,20 +206,18 @@
    - 顶部 tool/tab 控件尺寸与主窗口 sidebar 控件一致。
    - 所有 icon button 都有 tooltip 或 accessible name。
    - 切换 sidebar 宽度、隐藏/显示 sidebar 后，Browser WebView 位置和大小跟随可视容器，不停留在旧位置。
-4. 将 tool surface 切到 dialog mode。
-5. 期望 dialog 使用 wide layout：左侧是垂直 tab sidebar，右侧是当前 tool 内容；关闭按钮只在 dialog mode 显示。
-6. 将 tool surface 切到 window mode。
-7. 期望 window 默认接近全屏，标题栏内容和 macOS traffic lights 垂直对齐，icon/tab 样式与主窗口一致。
-8. 在 dialog/window 间切换同一个 root。
-9. 期望 active tab、打开的文件 tab、git 选中文件和 browser URL 不无故丢失。
+4. 将 tool surface 切到 window mode。
+5. 期望 window 默认接近全屏，左侧是垂直 tab sidebar，右侧是当前 tool 内容，标题栏内容和 macOS traffic lights 垂直对齐，icon/tab 样式与主窗口一致。
+6. 在 sidebar/window 间切换同一个 root。
+7. 期望 active tab、打开的文件 tab、git 选中文件和 browser URL 不无故丢失。
 
 ## Workspace Files
 
-覆盖：file tree、Monaco editor、multi-tab、unsaved changes、file icon、wide mode resize。
+覆盖：file tree、Monaco editor、multi-tab、unsaved changes、file icon、window mode resize。
 
 1. 在 sidebar mode 的 Files 中点击一个文件。
-2. 期望自动打开 dialog mode，并选中刚点击的文件。
-3. 在 wide Files 中打开多个文件。
+2. 期望自动打开 window mode，并选中刚点击的文件。
+3. 在 window Files 中打开多个文件。
 4. 期望右侧是 VS Code 风格 editor tab，可多开、切换和关闭；tab icon 与 file tree icon 一致且有文件类型颜色。
 5. 修改一个文件。
 6. 期望 tab 右侧显示未保存小点，不显示显式 `Save` 按钮。
@@ -234,7 +232,7 @@
 
 ## Workspace Git
 
-覆盖：git status/diff、sidebar compact diff、wide diff、commit composer、commit IPC。
+覆盖：git status/diff、sidebar compact diff、window diff、commit composer、commit IPC。
 
 1. 在有改动的 project root 打开 Git。
 2. sidebar mode 期望：
@@ -242,7 +240,7 @@
    - 文件列表紧凑，文件之间用分割线区隔。
    - diff 默认折叠，展开后在原地渲染。
    - 文件行显示 checkbox、文件名、绿色 `+N` 和红色 `-N`，不显示 `unstaged` 文案。
-3. wide mode 期望：
+3. window mode 期望：
    - 左侧是文件列表和 small size commit composer。
    - 点击文件名不展开列表项，而是在右侧显示该文件 diff。
    - diff tab 不支持多开；切换文件复用同一个右侧 diff viewer。
@@ -313,9 +311,9 @@
 - Send/cancel/permission 不能把 chat 卡死。
 - Project chat 必须使用 project cwd。
 - Work Mode project 展开后必须稳定显示已有 chat，不能依赖切换页面触发重渲染。
-- Workspace tool 的 sidebar/dialog/window 三种 host 必须共享同一套 tab/content state。
-- Wide mode Files/Git 必须走同一套布局判断，不能分别写两套 tab UI。
-- Browser WebView 必须在 sidebar/window/dialog resize、隐藏和 route 变化后同步 bounds。
+- Workspace tool 的 sidebar/window 两种 host 必须共享同一套 tab/content state。
+- Window mode Files/Git 必须走同一套布局判断，不能分别写两套 tab UI。
+- Browser WebView 必须在 sidebar/window resize、隐藏和 route 变化后同步 bounds。
 - Desktop DB 只存 chat/project metadata，不存消息。
 - Electron preload 缺失导致的普通浏览器 blank page 不能误判为 app 失败。
 - Root provider 必须覆盖所有 route，尤其是 tooltip/toast/dialog。

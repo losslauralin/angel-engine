@@ -9,8 +9,8 @@ loop over runtimes. The point of this QA is to observe the real interactive
 behavior and decide the next step from the previous terminal output.
 
 This CLI QA covers engine/client/runtime behavior only. It does not cover the
-desktop renderer shell, Chat/Work mode sidebar, workspace tool
-sidebar/dialog/window hosts, Monaco file editing, Browser WebView bounds, or the
+desktop renderer shell, Chat/Work mode sidebar, workspace tool sidebar/window
+hosts, Monaco file editing, Browser WebView bounds, or the
 desktop Git composer. Cover those through `desktop/docs/qa-checklist.md` and
 `desktop/docs/agent-runtime-qa-checklist.md`.
 

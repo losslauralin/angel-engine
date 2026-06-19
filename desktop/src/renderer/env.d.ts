@@ -65,9 +65,6 @@ declare global {
       onUpdateDownloaded: (
         handler: (event: DesktopUpdateDownloadedEvent) => void,
       ) => () => void;
-      onWorkspaceToolDialogRequested: (
-        handler: (instance: WorkspaceToolInstance) => void,
-      ) => () => void;
       onWorkspaceToolInstanceUpdated: (
         handler: (instance: WorkspaceToolInstance) => void,
       ) => () => void;
@@ -87,7 +84,6 @@ declare global {
         input: WorkspaceToolInstanceCloseInput,
       ) => void;
       focusWorkspaceToolSurface: () => void;
-      openWorkspaceToolDialog: (input: WorkspaceToolWindowOpenInput) => void;
       openWorkspaceToolWindow: (input: WorkspaceToolWindowOpenInput) => void;
       registerWorkspaceToolWindowInstance: (
         input: WorkspaceToolWindowOpenInput,

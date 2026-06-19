@@ -1,4 +1,4 @@
-export type WorkspaceToolSurfaceHost = "dialog" | "sidebar" | "window";
+export type WorkspaceToolSurfaceHost = "sidebar" | "window";
 
 export interface WorkspaceToolSurfaceContext {
   chatId?: string | null;
@@ -48,6 +48,13 @@ export interface WorkspaceToolSurfaceSnapshot {
   nextBrowserOrdinal: number;
   nextTerminalOrdinal: number;
   tabs: WorkspaceToolSurfaceDynamicTab[];
+  windowFileOpenRequest?: WorkspaceToolSurfaceWindowFileOpenRequest;
+}
+
+export interface WorkspaceToolSurfaceWindowFileOpenRequest {
+  id: string;
+  path: string;
+  root: string;
 }
 
 export interface WorkspaceToolSurfaceState {

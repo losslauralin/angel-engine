@@ -73,7 +73,6 @@ import {
 } from "@/app/workspace/workspace-sidebar-control";
 import {
   WorkspaceToolContextBridge,
-  WorkspaceToolDialogHost,
   WorkspaceToolSurfaceHostControls,
 } from "@/app/workspace/workspace-tool-host";
 import { useWorkspaceToolStore } from "@/app/workspace/workspace-tool-store";
@@ -1207,7 +1206,6 @@ function WorkspacePageContent({
           chatId={selectedChatId ?? null}
           root={workspaceToolRoot ?? null}
         />
-        <WorkspaceToolDialogHost api={api} />
 
         {settingsActive ? (
           <SidebarInset className="h-svh max-h-svh overflow-hidden">

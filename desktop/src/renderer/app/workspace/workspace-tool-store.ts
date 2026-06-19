@@ -9,7 +9,7 @@ import type { WorkspaceFileReadResult } from "@shared/workspace-tools";
 import is from "@sindresorhus/is";
 import { create } from "zustand";
 
-export type WorkspaceWideFileState =
+export type WorkspaceWindowFileState =
   | {
       status: "error";
       message: string;
@@ -28,13 +28,13 @@ export type WorkspaceWideFileState =
       status: "text";
     };
 
-export interface WorkspaceWideFilesState {
+export interface WorkspaceWindowFilesState {
   activePath: string | null;
-  fileStates: Record<string, WorkspaceWideFileState>;
+  fileStates: Record<string, WorkspaceWindowFileState>;
   openFilePaths: string[];
 }
 
-export const emptyWorkspaceWideFilesState: WorkspaceWideFilesState = {
+export const emptyWorkspaceWindowFilesState: WorkspaceWindowFilesState = {
   activePath: null,
   fileStates: {},
   openFilePaths: [],
@@ -45,34 +45,34 @@ interface WorkspaceToolState {
   hydrated: boolean;
   host: WorkspaceToolSurfaceHost;
   snapshots: Record<string, WorkspaceToolSurfaceSnapshot>;
-  wideFilesByRoot: Record<string, WorkspaceWideFilesState>;
-  wideFilesEditorDirty: boolean;
+  windowFilesByRoot: Record<string, WorkspaceWindowFilesState>;
+  windowFilesEditorDirty: boolean;
   focusWorkspaceToolSurface: () => void;
-  closeWideFile: (input: { path: string; root: string }) => void;
-  openWideFile: (input: { path: string; root: string }) => void;
+  closeWindowFile: (input: { path: string; root: string }) => void;
+  openWindowFile: (input: { path: string; root: string }) => void;
   requestWorkspaceToolHost: (host: WorkspaceToolSurfaceHost) => void;
-  selectWideFile: (input: { path: string; root: string }) => void;
-  setWideFileDraftContent: (input: {
+  selectWindowFile: (input: { path: string; root: string }) => void;
+  setWindowFileDraftContent: (input: {
     content: string;
     path: string;
     root: string;
   }) => void;
-  setWideFileReadError: (input: {
+  setWindowFileReadError: (input: {
     message: string;
     path: string;
     root: string;
   }) => void;
-  setWideFileReadResult: (input: {
+  setWindowFileReadResult: (input: {
     result: WorkspaceFileReadResult;
     root: string;
   }) => void;
-  setWideFileSavedContent: (input: {
+  setWindowFileSavedContent: (input: {
     content: string;
     path: string;
     root: string;
     size: number;
   }) => void;
-  setWideFilesEditorDirty: (dirty: boolean) => void;
+  setWindowFilesEditorDirty: (dirty: boolean) => void;
   syncWorkspaceToolContext: (context: WorkspaceToolSurfaceContext) => void;
   syncWorkspaceToolState: (state: WorkspaceToolSurfaceState) => void;
   updateWorkspaceToolSnapshot: (
@@ -88,10 +88,11 @@ export const workspaceToolGitTabId = "git";
 
 export const useWorkspaceToolStore = create<WorkspaceToolState>()(
   (set, get) => ({
-    closeWideFile: (input) => {
+    closeWindowFile: (input) => {
       set((current) => {
         const rootState =
-          current.wideFilesByRoot[input.root] ?? emptyWorkspaceWideFilesState;
+          current.windowFilesByRoot[input.root] ??
+          emptyWorkspaceWindowFilesState;
         const closingIndex = rootState.openFilePaths.indexOf(input.path);
         const openFilePaths = rootState.openFilePaths.filter(
           (path) => path !== input.path,
@@ -106,8 +107,8 @@ export const useWorkspaceToolStore = create<WorkspaceToolState>()(
             : rootState.activePath;
 
         return {
-          wideFilesByRoot: {
-            ...current.wideFilesByRoot,
+          windowFilesByRoot: {
+            ...current.windowFilesByRoot,
             [input.root]: {
               activePath,
               fileStates,
@@ -123,13 +124,14 @@ export const useWorkspaceToolStore = create<WorkspaceToolState>()(
     },
     host: "sidebar",
     hydrated: false,
-    openWideFile: (input) => {
+    openWindowFile: (input) => {
       set((current) => {
         const rootState =
-          current.wideFilesByRoot[input.root] ?? emptyWorkspaceWideFilesState;
+          current.windowFilesByRoot[input.root] ??
+          emptyWorkspaceWindowFilesState;
         return {
-          wideFilesByRoot: {
-            ...current.wideFilesByRoot,
+          windowFilesByRoot: {
+            ...current.windowFilesByRoot,
             [input.root]: {
               activePath: input.path,
               fileStates: {
@@ -153,16 +155,16 @@ export const useWorkspaceToolStore = create<WorkspaceToolState>()(
       set({ host });
       window.desktopWindow.setWorkspaceToolSurfaceHost({ host });
     },
-    selectWideFile: (input) => {
+    selectWindowFile: (input) => {
       set((current) => {
-        const rootState = current.wideFilesByRoot[input.root];
+        const rootState = current.windowFilesByRoot[input.root];
         if (!rootState?.openFilePaths.includes(input.path)) {
           return {};
         }
 
         return {
-          wideFilesByRoot: {
-            ...current.wideFilesByRoot,
+          windowFilesByRoot: {
+            ...current.windowFilesByRoot,
             [input.root]: {
               ...rootState,
               activePath: input.path,
@@ -171,17 +173,17 @@ export const useWorkspaceToolStore = create<WorkspaceToolState>()(
         };
       });
     },
-    setWideFileDraftContent: (input) => {
+    setWindowFileDraftContent: (input) => {
       set((current) => {
-        const rootState = current.wideFilesByRoot[input.root];
+        const rootState = current.windowFilesByRoot[input.root];
         const fileState = rootState?.fileStates[input.path];
         if (fileState?.status !== "text") {
           return {};
         }
 
         return {
-          wideFilesByRoot: {
-            ...current.wideFilesByRoot,
+          windowFilesByRoot: {
+            ...current.windowFilesByRoot,
             [input.root]: {
               ...rootState,
               fileStates: {
@@ -196,16 +198,16 @@ export const useWorkspaceToolStore = create<WorkspaceToolState>()(
         };
       });
     },
-    setWideFileReadError: (input) => {
+    setWindowFileReadError: (input) => {
       set((current) => {
-        const rootState = current.wideFilesByRoot[input.root];
+        const rootState = current.windowFilesByRoot[input.root];
         if (rootState?.fileStates[input.path]?.status !== "loading") {
           return {};
         }
 
         return {
-          wideFilesByRoot: {
-            ...current.wideFilesByRoot,
+          windowFilesByRoot: {
+            ...current.windowFilesByRoot,
             [input.root]: {
               ...rootState,
               fileStates: {
@@ -220,39 +222,39 @@ export const useWorkspaceToolStore = create<WorkspaceToolState>()(
         };
       });
     },
-    setWideFileReadResult: (input) => {
+    setWindowFileReadResult: (input) => {
       set((current) => {
-        const rootState = current.wideFilesByRoot[input.root];
+        const rootState = current.windowFilesByRoot[input.root];
         const path = input.result.path;
         if (rootState?.fileStates[path]?.status !== "loading") {
           return {};
         }
 
         return {
-          wideFilesByRoot: {
-            ...current.wideFilesByRoot,
+          windowFilesByRoot: {
+            ...current.windowFilesByRoot,
             [input.root]: {
               ...rootState,
               fileStates: {
                 ...rootState.fileStates,
-                [path]: createWorkspaceWideFileState(input.result),
+                [path]: createWorkspaceWindowFileState(input.result),
               },
             },
           },
         };
       });
     },
-    setWideFileSavedContent: (input) => {
+    setWindowFileSavedContent: (input) => {
       set((current) => {
-        const rootState = current.wideFilesByRoot[input.root];
+        const rootState = current.windowFilesByRoot[input.root];
         const fileState = rootState?.fileStates[input.path];
         if (fileState?.status !== "text") {
           return {};
         }
 
         return {
-          wideFilesByRoot: {
-            ...current.wideFilesByRoot,
+          windowFilesByRoot: {
+            ...current.windowFilesByRoot,
             [input.root]: {
               ...rootState,
               fileStates: {
@@ -272,12 +274,12 @@ export const useWorkspaceToolStore = create<WorkspaceToolState>()(
       set({ context });
       window.desktopWindow.setWorkspaceToolSurfaceContext(context);
     },
-    setWideFilesEditorDirty: (dirty) => {
-      set({ wideFilesEditorDirty: dirty });
+    setWindowFilesEditorDirty: (dirty) => {
+      set({ windowFilesEditorDirty: dirty });
     },
     snapshots: {},
-    wideFilesByRoot: {},
-    wideFilesEditorDirty: false,
+    windowFilesByRoot: {},
+    windowFilesEditorDirty: false,
     syncWorkspaceToolState: (state) => {
       const chatId = state.context.chatId ?? undefined;
       set((current) => ({
@@ -355,9 +357,9 @@ export function currentWorkspaceToolSnapshot(
   return snapshots[chatId] ?? createDefaultWorkspaceToolSnapshot();
 }
 
-function createWorkspaceWideFileState(
+function createWorkspaceWindowFileState(
   result: WorkspaceFileReadResult,
-): WorkspaceWideFileState {
+): WorkspaceWindowFileState {
   if (result.type === "unsupported") {
     return { result, status: "unsupported" };
   }
@@ -370,8 +372,8 @@ function createWorkspaceWideFileState(
   };
 }
 
-export function isWorkspaceWideFileStateDirty(
-  state: WorkspaceWideFileState | undefined,
+export function isWorkspaceWindowFileStateDirty(
+  state: WorkspaceWindowFileState | undefined,
 ) {
   return state?.status === "text" && state.draftContent !== state.savedContent;
 }
