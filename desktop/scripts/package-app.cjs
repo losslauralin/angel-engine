@@ -43,16 +43,21 @@ function printOutTree() {
   }
 }
 
+function packagedAppDir() {
+  return path.join(outDir, `Angel Engine-${process.platform}-${process.arch}`);
+}
+
 function selectAppBundle(appBundles) {
-  const preferredAppPath = path.join(
-    outDir,
-    `Angel Engine-${process.platform}-${process.arch}`,
-    "Angel Engine.app",
-  );
+  const preferredAppPath = path.join(packagedAppDir(), "Angel Engine.app");
 
   return appBundles.includes(preferredAppPath)
     ? preferredAppPath
     : appBundles[0];
+}
+
+function resolveNonMacPackagedApp() {
+  const dir = packagedAppDir();
+  return fs.existsSync(dir) ? dir : undefined;
 }
 
 async function main() {
@@ -76,12 +81,16 @@ async function main() {
     );
   }
 
-  const appBundles = findAppBundles(outDir);
-  const appPath = selectAppBundle(appBundles);
+  const appPath =
+    process.platform === "darwin"
+      ? selectAppBundle(findAppBundles(outDir))
+      : resolveNonMacPackagedApp();
 
   if (!appPath) {
     printOutTree();
-    throw new Error("No packaged .app bundle found after Forge completed.");
+    throw new Error(
+      `No packaged app found after Forge completed for ${process.platform}/${process.arch}.`,
+    );
   }
 
   fs.writeFileSync(packagedAppPathFile, `${appPath}\n`);

@@ -91,3 +91,6 @@ typings/
 
 # Electron-Forge
 out/
+
+# Generated at build time from git origin / GITHUB_REPOSITORY
+build/app-update.yml

@@ -22,8 +22,31 @@ mac:
 dmg:
   sign: true
   writeUpdateInfo: false
+win:
+  icon: assets/icon.png
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  artifactName: Angel-Engine-${version}-${arch}-setup.${ext}
+portable:
+  artifactName: Angel-Engine-${version}-${arch}-portable.${ext}
+linux:
+  icon: assets/icon.png
+  category: Development
+  target:
+    - target: AppImage
+      arch:
+        - x64
+appImage:
+  artifactName: Angel-Engine-${version}-${arch}.${ext}
 publish:
   provider: github
-  owner: AkaraChen
-  repo: angel-engine
   releaseType: release

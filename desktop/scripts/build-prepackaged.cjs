@@ -12,11 +12,11 @@ const packageJson = JSON.parse(
 const releaseType = packageJson.version.includes("-")
   ? "prerelease"
   : "release";
-const electronBuilderBin = path.join(
+const electronBuilderCli = path.join(
   desktopRoot,
   "node_modules",
-  ".bin",
-  process.platform === "win32" ? "electron-builder.cmd" : "electron-builder",
+  "electron-builder",
+  "cli.js",
 );
 
 const publishIndex = process.argv.indexOf("--publish");
@@ -89,17 +89,23 @@ function printOutTree() {
   }
 
   console.error("Forge output tree:");
-  execFileSync("find", [outDir, "-maxdepth", "3", "-print"], {
-    cwd: desktopRoot,
-    stdio: "inherit",
-  });
+  for (const entry of fs.readdirSync(outDir, { recursive: true })) {
+    console.error(path.join(outDir, entry.toString()));
+  }
 }
 
-const preferredAppPath = path.join(
-  outDir,
-  "Angel Engine-darwin-arm64",
-  "Angel Engine.app",
-);
+function expectedPackagedAppPath() {
+  const dir = path.join(
+    outDir,
+    `Angel Engine-${process.platform}-${process.arch}`,
+  );
+
+  if (process.platform === "darwin") {
+    return path.join(dir, "Angel Engine.app");
+  }
+
+  return dir;
+}
 
 function readPackagedAppPath() {
   if (!fs.existsSync(packagedAppPathFile)) {
@@ -116,16 +122,31 @@ function readPackagedAppPath() {
 }
 
 function selectAppBundle() {
-  const appBundles = findAppBundles(outDir);
   const packagedAppPath = readPackagedAppPath();
-  const appPath =
-    packagedAppPath && fs.existsSync(packagedAppPath)
-      ? packagedAppPath
-      : appBundles.includes(preferredAppPath)
-        ? preferredAppPath
-        : appBundles[0];
 
-  return { appBundles, appPath };
+  if (process.platform === "darwin") {
+    const appBundles = findAppBundles(outDir);
+    const expected = expectedPackagedAppPath();
+    const appPath =
+      packagedAppPath && fs.existsSync(packagedAppPath)
+        ? packagedAppPath
+        : appBundles.includes(expected)
+          ? expected
+          : appBundles[0];
+
+    return { appBundles, appPath };
+  }
+
+  if (packagedAppPath && fs.existsSync(packagedAppPath)) {
+    return { appBundles: [], appPath: packagedAppPath };
+  }
+
+  const expected = expectedPackagedAppPath();
+
+  return {
+    appBundles: [],
+    appPath: fs.existsSync(expected) ? expected : undefined,
+  };
 }
 
 function waitForAppBundle() {
@@ -167,26 +188,34 @@ const { appBundles, appPath } = waitForAppBundle();
 
 if (!appPath) {
   printOutTree();
-  throw new Error("No packaged .app bundle found under desktop/out.");
+  throw new Error(
+    `No packaged app found under desktop/out for ${process.platform}/${process.arch}.`,
+  );
 }
 
 if (appBundles.length > 1) {
   console.warn(`Found multiple app bundles, using: ${appPath}`);
 }
 
+const builderTargets =
+  process.platform === "darwin"
+    ? ["--mac", "dmg", "zip"]
+    : process.platform === "win32"
+      ? ["--win", "nsis", "portable"]
+      : ["--linux", "AppImage"];
+
 console.log(`Using prepackaged app: ${path.relative(desktopRoot, appPath)}`);
 
 execFileSync(
-  electronBuilderBin,
+  process.execPath,
   [
+    electronBuilderCli,
     "--prepackaged",
     appPath,
-    "--mac",
-    "dmg",
-    "zip",
+    ...builderTargets,
+    `--config.publish.releaseType=${releaseType}`,
     "--publish",
     publishMode,
-    `--config.publish.releaseType=${releaseType}`,
   ],
   {
     cwd: desktopRoot,
