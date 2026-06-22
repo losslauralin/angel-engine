@@ -2,6 +2,7 @@ const { execFileSync } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 const process = require("node:process");
+const { resolveGitHubSlug } = require("./resolve-github-slug.cjs");
 
 const desktopRoot = path.resolve(__dirname, "..");
 const outDir = path.join(desktopRoot, "out");
@@ -206,6 +207,28 @@ const builderTargets =
 
 console.log(`Using prepackaged app: ${path.relative(desktopRoot, appPath)}`);
 
+const publishConfigArgs = [];
+const slug = resolveGitHubSlug();
+
+if (slug) {
+  publishConfigArgs.push(
+    `-c.publish.owner=${slug.owner}`,
+    `-c.publish.repo=${slug.repo}`,
+  );
+  console.log(
+    `Publish target: ${slug.owner}/${slug.repo}` +
+      (process.env.GITHUB_REPOSITORY
+        ? " (from GITHUB_REPOSITORY)"
+        : " (from git origin)"),
+  );
+} else if (publishMode !== "never") {
+  printOutTree();
+  throw new Error(
+    "Could not resolve GitHub owner/repo for publishing. " +
+      "Set GITHUB_REPOSITORY or configure a github.com remote.origin.url.",
+  );
+}
+
 execFileSync(
   process.execPath,
   [
@@ -214,6 +237,7 @@ execFileSync(
     appPath,
     ...builderTargets,
     `--config.publish.releaseType=${releaseType}`,
+    ...publishConfigArgs,
     "--publish",
     publishMode,
   ],
