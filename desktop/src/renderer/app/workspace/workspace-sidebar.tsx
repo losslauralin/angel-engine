@@ -50,7 +50,6 @@ const WORKSPACE_MODES: Array<{
 interface WorkspaceSidebarProps {
   chats: Chat[];
   isChatsLoading: boolean;
-  isMacOS: boolean;
   isProjectsLoading: boolean;
   onArchiveChat: (chat: Chat) => MaybeAsync;
   onCreateProject: () => MaybeAsync;
@@ -195,7 +194,6 @@ export function WorkspaceFloatingSidebar(
 function WorkspaceSidebarContent({
   chats,
   isChatsLoading,
-  isMacOS,
   isProjectsLoading,
   onArchiveChat,
   onCreateProject,
@@ -235,7 +233,16 @@ function WorkspaceSidebarContent({
   return (
     <>
       <SidebarHeader className="p-2" data-electron-drag>
-        {isMacOS ? <div aria-hidden className="h-8 shrink-0" /> : null}
+        {/*
+          Reserve 32px at the top so the WorkspaceModeControl (chat/work tabs)
+          sits on the second visual row instead of sharing the top row with
+          the fixed-position sidebar collapse button (left=20/80, top=8). On
+          macOS this also clears the traffic-light buttons. Linux used to skip
+          this spacer, which placed the collapse button directly on top of the
+          chat/work tabs in both the pinned and floating sidebar, and clipped
+          the tab control against the floating panel's rounded corner.
+        */}
+        <div aria-hidden className="h-8 shrink-0" />
 
         <WorkspaceModeControl
           onValueChange={setWorkspaceMode}

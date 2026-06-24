@@ -273,7 +273,6 @@ function WorkspacePageContent({
   const toast = useToast();
   const queryClient = useQueryClient();
   const [location, navigate] = useLocation();
-  const isMacOS = window.desktopEnvironment.platform === "darwin";
   const [agentSettings, updateAgentSettings] = useAgentSettings();
   const availableAgentOptions = useSettingsStore(
     (state) => state.availableAgentOptions,
@@ -1152,7 +1151,6 @@ function WorkspacePageContent({
         <WorkspaceSidebar
           chats={chats}
           isChatsLoading={chatsQuery.isPending}
-          isMacOS={isMacOS}
           isProjectsLoading={projectsQuery.isPending}
           onArchiveChat={archiveChat}
           onCreateProject={() => void createProjectFromPicker()}
@@ -1171,7 +1169,6 @@ function WorkspacePageContent({
         <WorkspaceFloatingSidebar
           chats={chats}
           isChatsLoading={chatsQuery.isPending}
-          isMacOS={isMacOS}
           isProjectsLoading={projectsQuery.isPending}
           onArchiveChat={archiveChat}
           onCreateProject={() => void createProjectFromPicker()}

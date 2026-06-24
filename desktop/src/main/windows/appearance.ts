@@ -26,7 +26,14 @@ let didRegisterIpc = false;
 
 export function desktopWindowChromeOptions(): BrowserWindowConstructorOptions {
   if (!isMacOS) {
-    return {};
+    return {
+      // Linux uses the OS-native window frame and would otherwise render the
+      // application menu as a window-internal menu bar, stealing ~20-30px of
+      // vertical space from the React layout. Auto-hide it so the keyboard
+      // shortcuts defined in application-menu.ts still work (and users can
+      // reveal it by pressing Alt) without permanently crowding the top edge.
+      autoHideMenuBar: true,
+    };
   }
 
   return {
@@ -39,6 +46,10 @@ export function desktopWindowChromeOptions(): BrowserWindowConstructorOptions {
 export function configureDesktopWindowAppearance(window: BrowserWindow) {
   if (isMacOS) {
     window.setWindowButtonPosition(trafficLightPosition);
+  } else {
+    // Matches autoHideMenuBar above so freshly created windows start without
+    // the native menu bar visible even if it was toggled on previously.
+    window.setMenuBarVisibility(false);
   }
 }
 
