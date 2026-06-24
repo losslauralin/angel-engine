@@ -16,7 +16,7 @@
     "runtime:build": "pnpm --filter @angel-engine/client-napi build && pnpm --filter @angel-engine/js-client build && pnpm --filter @angel-engine/claude-client build",
     "prestart": "pnpm run runtime:build",
     "start": "electron-forge start",
-    "prepackage": "pnpm run runtime:build && pnpm run rebuild:native",
+    "prepackage": "pnpm run runtime:build && node scripts/write-app-update-yml.cjs && pnpm run rebuild:native",
     "package": "node scripts/package-app.cjs",
     "make": "pnpm run package && node scripts/build-prepackaged.cjs --publish never",
     "publish": "pnpm run package && node scripts/build-prepackaged.cjs --publish always",
