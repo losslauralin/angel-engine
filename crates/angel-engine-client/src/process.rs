@@ -422,10 +422,85 @@ fn spawn_command(program: &str) -> Command {
     }
     #[cfg(windows)]
     {
-        let mut cmd = Command::new(program);
+        // Runtime CLIs are frequently installed as `.cmd`/`.bat` shims (for
+        // example by pnpm/npm). `std::process::Command` only appends `.exe`
+        // when given a bare program name, so a bare name that resolves to a
+        // `.cmd` shim fails with "program not found". Resolve the program
+        // against `PATH`/`PATHEXT` ourselves and pass the full path; std then
+        // detects the `.cmd`/`.bat` extension and runs it through `cmd /C`.
+        let mut cmd = Command::new(resolve_windows_program(program));
         cmd.creation_flags(CREATE_NO_WINDOW);
         cmd
     }
+}
+
+/// Resolve a bare program name to an executable path on Windows.
+///
+/// Programs that already contain a directory separator or a file extension
+/// are returned unchanged so `std` can apply its own `.cmd`/`.bat` handling.
+/// Bare names are searched in `PATH` using the `PATHEXT` extension list,
+/// mirroring the resolution that the `which` crate performs for availability
+/// checks. If nothing is found, the original name is returned and
+/// `std::process::Command` surfaces the familiar "program not found" error
+/// for genuinely missing tools.
+#[cfg(windows)]
+fn resolve_windows_program(program: &str) -> String {
+    use std::path::Path;
+
+    let path = Path::new(program);
+    if path.extension().is_some() || path.components().count() > 1 {
+        return program.to_string();
+    }
+
+    let path_env = match std::env::var("PATH") {
+        Ok(value) => value,
+        Err(_) => return program.to_string(),
+    };
+    let pathext = std::env::var("PATHEXT").unwrap_or_else(|_| ".EXE;.CMD;.BAT;.COM".to_string());
+
+    resolve_windows_program_in(
+        program,
+        path_env.split(';').filter(|dir| !dir.is_empty()),
+        pathext.split(';').filter(|ext| !ext.is_empty()),
+    )
+    .map_or_else(|| program.to_string(), std::convert::identity)
+}
+
+/// Pure lookup core for [`resolve_windows_program`], separable from the process
+/// environment so it can be unit tested without mutating global `PATH`.
+///
+/// Returns `dir/{program}{ext}` for the first `PATH` directory whose
+/// `{program}{ext}` (for some `PATHEXT` extension) exists as a file. Empty
+/// `PATHEXT` entries are skipped to avoid matching the pnpm/npm bare
+/// extension-less shell shim, which `std::process::Command` cannot launch
+/// directly (it errors with "not a valid Win32 application"); this mirrors the
+/// resolution performed by the `which` crate used for availability checks.
+#[cfg(windows)]
+fn resolve_windows_program_in<'a, D, E>(program: &str, dirs: D, exts: E) -> Option<String>
+where
+    D: IntoIterator<Item = &'a str>,
+    E: IntoIterator<Item = &'a str>,
+{
+    use std::path::Path;
+
+    let ext_list: Vec<&str> = exts.into_iter().collect();
+
+    for dir in dirs {
+        if dir.is_empty() {
+            continue;
+        }
+        for ext in &ext_list {
+            if ext.is_empty() {
+                continue;
+            }
+            let candidate = Path::new(dir).join(format!("{program}{ext}"));
+            if candidate.is_file() {
+                return Some(candidate.to_string_lossy().into_owned());
+            }
+        }
+    }
+
+    None
 }
 
 fn load_runtime_model_catalog(command: &str) -> Option<serde_json::Value> {
@@ -469,4 +544,143 @@ where
             }
         }
     });
+}
+
+#[cfg(all(test, windows))]
+mod tests {
+    use super::resolve_windows_program_in;
+    use std::fs;
+    use std::path::PathBuf;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    static SEQUENCE: AtomicU64 = AtomicU64::new(0);
+
+    fn scratch() -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0) as u64;
+        let seq = SEQUENCE.fetch_add(1, Ordering::Relaxed);
+        let dir = std::env::temp_dir().join(format!("angel-engine-client-spawn-{nanos}-{seq}"));
+        fs::create_dir_all(&dir).expect("create scratch dir");
+        dir
+    }
+
+    #[test]
+    fn prefers_cmd_shim_over_bare_launcher_in_path() {
+        // pnpm/npm ship both a bare extension-less shell launcher and a
+        // `.CMD` shim for the same program. Windows cannot launch the bare
+        // launcher via `std::process::Command`, so resolution must pick the
+        // `.CMD` shim, mirroring `which`.
+        let dir = scratch();
+        fs::write(dir.join("codex"), "#!/bin/sh\n").expect("write bare");
+        fs::write(dir.join("codex.CMD"), "@echo off\n").expect("write cmd");
+        fs::write(dir.join("codex.ps1"), "# ps1\n").expect("write ps1");
+
+        let dir_str = dir.to_string_lossy().into_owned();
+        let dirs = [dir_str.as_str()];
+        let exts = [".COM", ".EXE", ".BAT", ".CMD", ".VBS"];
+        let resolved = resolve_windows_program_in("codex", dirs.into_iter(), exts.into_iter())
+            .expect("should resolve");
+
+        assert_eq!(
+            resolved,
+            dir.join("codex.CMD").to_string_lossy().into_owned(),
+            "must prefer the .CMD shim over the bare launcher"
+        );
+    }
+
+    #[test]
+    fn respects_pathext_order() {
+        let dir = scratch();
+        fs::write(dir.join("qodercli.BAT"), "@echo bat\n").expect("write bat");
+        fs::write(dir.join("qodercli.CMD"), "@echo cmd\n").expect("write cmd");
+
+        let dir_str = dir.to_string_lossy().into_owned();
+        let dirs = [dir_str.as_str()];
+
+        let bat_first =
+            resolve_windows_program_in("qodercli", dirs.into_iter(), [".BAT", ".CMD"].into_iter())
+                .expect("should resolve");
+        assert_eq!(
+            bat_first,
+            dir.join("qodercli.BAT").to_string_lossy().into_owned(),
+            "earlier PATHEXT extensions win"
+        );
+
+        let cmd_first =
+            resolve_windows_program_in("qodercli", dirs.into_iter(), [".CMD", ".BAT"].into_iter())
+                .expect("should resolve");
+        assert_eq!(
+            cmd_first,
+            dir.join("qodercli.CMD").to_string_lossy().into_owned(),
+            "order flips with PATHEXT"
+        );
+    }
+
+    #[test]
+    fn returns_none_when_no_shim_exists() {
+        let dir = scratch();
+        let dir_str = dir.to_string_lossy().into_owned();
+        let dirs = [dir_str.as_str()];
+        let exts = [".CMD", ".EXE"];
+        assert_eq!(
+            resolve_windows_program_in("absent-tool", dirs.into_iter(), exts.into_iter()),
+            None,
+            "missing programs must not resolve"
+        );
+    }
+
+    #[test]
+    fn scans_multiple_path_directories_in_order() {
+        let first = scratch();
+        let second = scratch();
+        // Only the second directory has the shim.
+        fs::write(second.join("kimi.CMD"), "@echo kimi\n").expect("write cmd");
+
+        let first_str = first.to_string_lossy().into_owned();
+        let second_str = second.to_string_lossy().into_owned();
+        let dirs = [first_str.as_str(), second_str.as_str()];
+        let exts = [".CMD"];
+        let resolved = resolve_windows_program_in("kimi", dirs.into_iter(), exts.into_iter())
+            .expect("should resolve from second dir");
+        assert_eq!(
+            resolved,
+            second.join("kimi.CMD").to_string_lossy().into_owned(),
+            "must keep searching subsequent PATH entries"
+        );
+    }
+
+    #[test]
+    fn skips_empty_pathext_entries() {
+        // The pnpm bare launcher should never win, even if PATHEXT contains an
+        // empty entry (e.g. from malformed ";;" sequences).
+        let dir = scratch();
+        fs::write(dir.join("gemini"), "#!/bin/sh\n").expect("write bare");
+        // Make a real `.CMD` so the resolution still succeeds instead of
+        // accidentally matching the bare launcher.
+        fs::write(dir.join("gemini.CMD"), "@echo gemini\n").expect("write cmd");
+        let dir_str = dir.to_string_lossy().into_owned();
+        let dirs = [dir_str.as_str()];
+        let exts = ["", ".CMD"];
+        let resolved = resolve_windows_program_in("gemini", dirs.into_iter(), exts.into_iter())
+            .expect("should resolve via .CMD");
+        assert_eq!(
+            resolved,
+            dir.join("gemini.CMD").to_string_lossy().into_owned(),
+            "empty PATHEXT entries must not match the bare launcher"
+        );
+    }
+}
+
+// `spawn_command` and its Windows helpers are compiled away on non-Windows
+// targets; this dummy keeps a non-Windows test run green and documents that
+// the Windows-specific tests live in the `tests` module above.
+#[cfg(all(test, not(windows)))]
+mod tests_non_windows {
+    #[test]
+    fn spawn_command_path_helper_compiles() {
+        // `spawn_command` is compiled away on non-Windows; nothing to assert.
+    }
 }
